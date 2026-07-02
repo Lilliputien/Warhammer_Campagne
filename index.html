@@ -223,6 +223,22 @@ nav.links a:focus-visible{outline:2px solid var(--gold-bright); outline-offset:2
 .bdraw{font-family:var(--display);font-size:.82rem;color:var(--bone-dim)}
 .bempty{font-style:italic;color:var(--bone-dim);font-size:.9rem;padding:10px 4px}
 @media (max-width:560px){.brow{grid-template-columns:1fr auto;gap:6px 12px}.bpart{grid-column:1/-1;order:-1}}
+/* écran de connexion */
+#gate{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:24px;background:radial-gradient(120% 80% at 50% 18%, #17110b, #0C0A08 70%)}
+#gate.hidden{display:none}
+.gate-card{width:100%;max-width:380px;text-align:center;border:1px solid var(--line);background:linear-gradient(180deg,var(--panel),var(--ink2));padding:38px 28px;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.gate-sig{width:42px;height:42px;margin:0 auto 16px;display:block}
+.gate-brand{font-family:var(--display);font-size:2rem;letter-spacing:.18em;color:var(--bone)}
+.gate-sub{font-family:var(--body);font-style:italic;color:var(--gold-bright);margin-top:4px}
+.gate-lede{color:var(--bone-dim);font-size:.95rem;margin:20px 0 22px}
+#gate input{width:100%;margin-bottom:12px;padding:12px 14px;background:var(--ink);border:1px solid var(--line-strong);color:var(--bone);font-family:var(--body);font-size:1rem;border-radius:2px}
+#gate input:focus{outline:none;border-color:var(--gold)}
+.gate-btn{width:100%;padding:13px;background:var(--gold);color:var(--ink);border:none;border-radius:2px;font-family:var(--display);letter-spacing:.18em;text-transform:uppercase;font-size:.78rem;cursor:pointer;transition:background .2s}
+.gate-btn:hover{background:var(--gold-bright)}
+.gate-msg{margin-top:14px;font-size:.85rem;color:var(--gold-bright);min-height:1.1em}
+body.locked{overflow:hidden}
+nav.links a.logout{color:var(--bone-dim)}
+nav.links a.logout:hover{color:var(--sang)}
 /* battles */
 .toolbar{display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; margin-bottom:20px}
 .btn{font-family:var(--display); font-size:.68rem; letter-spacing:.18em; text-transform:uppercase; background:var(--gold); color:var(--ink); border:1px solid var(--gold); padding:11px 16px; border-radius:2px; cursor:pointer}
@@ -273,6 +289,19 @@ footer .foot{font-family:var(--display); font-size:.66rem; letter-spacing:.24em;
 </head>
 <body>
 
+<div id="gate">
+  <div class="gate-card">
+    <svg class="gate-sig" viewBox="0 0 24 24" fill="none" stroke="#C9A24B" stroke-width="1"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7" opacity=".6"/><circle cx="12" cy="12" r="10.5" opacity=".3"/></svg>
+    <div class="gate-brand">CYTHEREA</div>
+    <div class="gate-sub">Le Nœud de Résonance</div>
+    <p class="gate-lede">Accès réservé aux combattants de la campagne.</p>
+    <input id="g-email" type="email" placeholder="Adresse e-mail" autocomplete="email">
+    <input id="g-pass" type="password" placeholder="Mot de passe" autocomplete="current-password">
+    <button id="g-login" class="gate-btn">Entrer</button>
+    <div id="gate-msg" class="gate-msg"></div>
+  </div>
+</div>
+
 <header class="bar">
   <div class="wrap">
     <a class="brand" data-go="/">
@@ -284,6 +313,7 @@ footer .foot{font-family:var(--display); font-size:.66rem; letter-spacing:.24em;
       <a data-go="/factions">Factions</a>
       <a data-go="/actes">Actes</a>
       <a data-go="/batailles">Batailles</a>
+      <a id="logoutBtn" class="logout">Déconnexion</a>
     </nav>
   </div>
 </header>
@@ -347,7 +377,45 @@ footer .foot{font-family:var(--display); font-size:.66rem; letter-spacing:.24em;
 
 <footer><div class="wrap"><div class="rule"><i></i></div><div class="foot">Campagne Cytherea · Chronique de guerre · Maquette</div></div></footer>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+/* ============================================================
+   CONFIGURATION SUPABASE — À COMPLÉTER
+   Remplace la valeur de SUPA_KEY ci-dessous par ta clé
+   « Publishable » (elle commence par sb_publishable_...).
+   L'URL de ton projet est déjà renseignée.
+   ============================================================ */
+const SUPA_URL = "https://jhkoamrjshnyucupnejm.supabase.co";
+const SUPA_KEY = "COLLE_ICI_TA_CLE_PUBLISHABLE";
+
+let sb=null;
+function gateMsg(t){const m=document.getElementById('gate-msg');if(m)m.textContent=t||'';}
+function showApp(on){
+  const g=document.getElementById('gate');
+  if(on){ g.classList.add('hidden'); document.body.classList.remove('locked'); }
+  else { g.classList.remove('hidden'); document.body.classList.add('locked'); }
+}
+async function doLogin(){
+  if(!sb) return;
+  const email=(document.getElementById('g-email').value||'').trim();
+  const pass=document.getElementById('g-pass').value||'';
+  if(!email||!pass){ gateMsg("Renseigne ton e-mail et ton mot de passe."); return; }
+  gateMsg("Connexion…");
+  const {error}=await sb.auth.signInWithPassword({email,password:pass});
+  gateMsg(error ? "E-mail ou mot de passe incorrect." : "");
+}
+async function doLogout(){ if(sb) await sb.auth.signOut(); }
+function initAuth(){
+  if(!window.supabase){ gateMsg("Service indisponible (connexion internet ?)."); return; }
+  if(!SUPA_KEY || SUPA_KEY.indexOf('sb_')!==0){ gateMsg("Configuration à compléter dans le fichier (clé Supabase)."); return; }
+  sb=window.supabase.createClient(SUPA_URL,SUPA_KEY);
+  sb.auth.getSession().then(({data})=>showApp(!!data.session));
+  sb.auth.onAuthStateChange((_e,s)=>showApp(!!s));
+  const b=document.getElementById('g-login'); if(b) b.addEventListener('click',doLogin);
+  const p=document.getElementById('g-pass'); if(p) p.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+  const o=document.getElementById('logoutBtn'); if(o) o.addEventListener('click',e=>{e.preventDefault();doLogout();});
+}
+
 const FACTIONS = [
   { id:"necrons", name:"Les Éveillés", real:"Necrons — Dynastie inconnue", tag:"Xenos · Métal endormi", c:"#54CBA6",
     lore:["Le Nœud n'a pas réveillé la dynastie : il l'a appelée. Sous la poussière de Cytherea, des légions de métal redressent la tête après des éons de stase, mues par un protocole que même leurs seigneurs-liches ne reconnaissent pas. Ils ne défendent pas un territoire. Ils répondent à une convocation.",
@@ -665,7 +733,7 @@ document.addEventListener('click',e=>{
   if(j){e.preventDefault();const t=document.getElementById(j.getAttribute('data-jump'));if(t)t.scrollIntoView({behavior:'smooth',block:'start'});return;}
   const t=e.target.closest('[data-go]');if(!t)return;e.preventDefault();go(t.getAttribute('data-go'));
 });
-renderFactions();renderActs();renderBattles();go('/');
+renderFactions();renderActs();renderBattles();go('/');initAuth();
 </script>
 </body>
 </html>
