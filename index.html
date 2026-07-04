@@ -254,6 +254,36 @@ nav.links a.logout:hover{color:var(--sang)}
 .hrow.malusrow .hlab{color:#c0928a}
 .hregle{color:#d8cdb4;font-size:.96rem}
 .hregle b{color:var(--bone);font-weight:400;font-family:var(--display);letter-spacing:.02em}
+/* tracker héros */
+.hrow.track{transition:box-shadow .35s ease, border-color .35s ease}
+.hrow.track{box-shadow:0 0 calc(var(--p,0)*22px) calc(var(--p,0)*-4px) color-mix(in srgb, var(--c) 85%, transparent)}
+.hrow.malusrow.track{box-shadow:0 0 calc(var(--p,0)*22px) calc(var(--p,0)*-4px) rgba(154,86,72,.85)}
+.hrow.track.unlocked{border-left-color:var(--c);box-shadow:0 0 26px -5px var(--c), inset 0 0 0 1px color-mix(in srgb,var(--c) 38%,transparent)}
+.hrow.malusrow.track.unlocked{box-shadow:0 0 24px -5px #9a5648, inset 0 0 0 1px rgba(154,86,72,.5)}
+.hstate{display:flex;align-items:center;gap:8px;white-space:nowrap}
+.hbadge{display:none;font-family:var(--display);font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ink);background:var(--c);padding:3px 8px;border-radius:2px}
+.hrow.track.unlocked .hbadge{display:inline-block;animation:badgepulse 2.6s ease-in-out infinite}
+.hrow.malusrow.track.unlocked .hbadge{background:#9a5648;color:var(--bone)}
+@keyframes badgepulse{0%,100%{opacity:1}50%{opacity:.5}}
+.hcount{font-family:var(--display);font-size:.74rem;letter-spacing:.05em;color:var(--bone-dim)}
+.hcount .cval{color:var(--bone)}
+.tbtn{width:27px;height:27px;border:1px solid var(--line-strong);background:var(--ink);color:var(--bone);border-radius:2px;cursor:pointer;font-size:1.05rem;font-family:var(--display);display:inline-grid;place-items:center;line-height:1;padding:0}
+.tbtn:hover{border-color:var(--c);color:var(--c)}
+.hseuil-line{margin:9px 0 0}
+.hrow.crown.locked{opacity:.72}
+.hrow.crown.unlocked{box-shadow:0 0 26px -6px var(--gold-bright)}
+.crownstate{margin-top:11px;font-family:var(--display);font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--bone-dim)}
+.hrow.crown.unlocked .crownstate{color:var(--gold-bright)}
+.recap{border:1px solid var(--line);background:var(--ink2);padding:14px 16px;margin:8px 0 18px;max-width:820px}
+.recap-h{font-family:var(--display);font-size:.6rem;letter-spacing:.22em;text-transform:uppercase;color:var(--c);margin-bottom:11px}
+.recap-cols{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.rc-lab{display:block;font-family:var(--display);font-size:.55rem;letter-spacing:.16em;text-transform:uppercase;color:var(--bone-dim);margin-bottom:6px}
+.recap-col.malus .rc-lab{color:#c0928a}
+.recap ul{margin:0;padding-left:16px}
+.recap li{margin:3px 0}
+.recap em{color:var(--bone-dim);font-size:.9rem}
+.recap .crownli{color:var(--gold-bright)}
+@media (max-width:560px){.recap-cols{grid-template-columns:1fr;gap:12px}.hrow.track .hrow-h{flex-direction:column;align-items:flex-start;gap:9px}}
 /* battles */
 .toolbar{display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between; margin-bottom:20px}
 .btn{font-family:var(--display); font-size:.68rem; letter-spacing:.18em; text-transform:uppercase; background:var(--gold); color:var(--ink); border:1px solid var(--gold); padding:11px 16px; border-radius:2px; cursor:pointer}
@@ -420,12 +450,71 @@ async function doLogin(){
   gateMsg(error ? "E-mail ou mot de passe incorrect." : "");
 }
 async function doLogout(){ if(sb) await sb.auth.signOut(); }
+
+let ME={role:null,factions:[],progress:{}}; let CUR='/';
+async function loadMe(){
+  ME={role:null,factions:[],progress:{}};
+  try{
+    const {data:{user}}=await sb.auth.getUser(); if(!user) return;
+    const {data:prof}=await sb.from('profiles').select('role,factions').eq('id',user.id).single();
+    if(prof){ ME.role=prof.role; ME.factions=prof.factions||[]; }
+    const {data:rows}=await sb.from('hero_progress').select('faction,data').eq('user_id',user.id);
+    (rows||[]).forEach(function(r){ ME.progress[r.faction]=r.data||{}; });
+  }catch(e){}
+}
+async function onSession(session){
+  if(session){ await loadMe(); showApp(true); go(CUR); }
+  else { ME={role:null,factions:[],progress:{}}; showApp(false); }
+}
+function canTrack(id){ return ME.role==='admin' || (ME.factions||[]).indexOf(id)>=0; }
+async function saveProgress(fac){
+  if(!sb||!ME.progress[fac]) return;
+  try{ const {data:{user}}=await sb.auth.getUser(); if(!user)return;
+    await sb.from('hero_progress').upsert({user_id:user.id,faction:fac,data:ME.progress[fac],updated_at:new Date().toISOString()},{onConflict:'user_id,faction'});
+  }catch(e){}
+}
+function paintEntry(row){
+  const fac=row.dataset.fac,key=row.dataset.key,seuil=parseInt(row.dataset.seuil,10)||1;
+  const c=(ME.progress[fac]&&ME.progress[fac][key])||0, p=Math.min(c/seuil,1);
+  row.style.setProperty('--p',p); row.classList.toggle('unlocked',c>=seuil);
+  const v=row.querySelector('.cval'); if(v)v.textContent=c;
+}
+function updateCrown(fac){
+  const crown=document.querySelector('.hrow.crown[data-fac="'+fac+'"]'); if(!crown) return;
+  const rows=[].slice.call(document.querySelectorAll('.hrow.track[data-kind="v"][data-fac="'+fac+'"]'));
+  const n=rows.filter(function(r){return r.classList.contains('unlocked');}).length, on=n>=3;
+  crown.classList.toggle('unlocked',on); crown.classList.toggle('locked',!on);
+  const st=crown.querySelector('.crownstate'); if(st)st.textContent = on?'✦ Couronnement débloqué — 3 titres obtenus':('Verrouillé — '+Math.min(n,3)+'/3 titres requis');
+}
+function buildRecap(fac){
+  const host=document.getElementById('recap-'+fac); if(!host) return;
+  const h=HEROTABLE[fac]; if(!h) return; const prog=ME.progress[fac]||{};
+  const actV=h.voie.filter(function(r,i){return (prog['v'+i]||0)>=(parseInt(r.seuil,10)||1);}).map(function(r){return r.titre;});
+  const actM=h.malus.filter(function(r,i){return (prog['m'+i]||0)>=(parseInt(r.seuil,10)||1);}).map(function(r){return r.titre;});
+  const crownOn=h.voie.filter(function(r,i){return (prog['v'+i]||0)>=(parseInt(r.seuil,10)||1);}).length>=3;
+  let f='<div class="recap-h">État actuel</div><div class="recap-cols">';
+  f+='<div class="recap-col"><span class="rc-lab">Faveurs actives</span>';
+  if(actV.length||crownOn){ f+='<ul>'+actV.map(function(t){return '<li>'+t+'</li>';}).join(''); if(crownOn)f+='<li class="crownli">'+h.couronnement.titre+' — couronnement</li>'; f+='</ul>'; }
+  else f+="<em>Aucune pour l'instant.</em>";
+  f+='</div><div class="recap-col malus"><span class="rc-lab">Fardeaux subis</span>';
+  if(actM.length) f+='<ul>'+actM.map(function(t){return '<li>'+t+'</li>';}).join('')+'</ul>';
+  else f+="<em>Aucun pour l'instant.</em>";
+  f+='</div></div>';
+  host.innerHTML=f;
+}
+function adjustEntry(row,delta){
+  const fac=row.dataset.fac,key=row.dataset.key;
+  ME.progress[fac]=ME.progress[fac]||{};
+  let c=(ME.progress[fac][key]||0)+delta; if(c<0)c=0;
+  ME.progress[fac][key]=c;
+  paintEntry(row); updateCrown(fac); buildRecap(fac); saveProgress(fac);
+}
 function initAuth(){
   if(!window.supabase){ gateMsg("Service indisponible (connexion internet ?)."); return; }
   if(!SUPA_KEY || SUPA_KEY.indexOf('sb_')!==0){ gateMsg("Configuration à compléter dans le fichier (clé Supabase)."); return; }
   sb=window.supabase.createClient(SUPA_URL,SUPA_KEY);
-  sb.auth.getSession().then(({data})=>showApp(!!data.session));
-  sb.auth.onAuthStateChange((_e,s)=>showApp(!!s));
+  sb.auth.getSession().then(({data})=>onSession(data.session));
+  sb.auth.onAuthStateChange((_e,s)=>onSession(s));
   const b=document.getElementById('g-login'); if(b) b.addEventListener('click',doLogin);
   const p=document.getElementById('g-pass'); if(p) p.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
   const o=document.getElementById('logoutBtn'); if(o) o.addEventListener('click',e=>{e.preventDefault();doLogout();});
@@ -643,6 +732,7 @@ function renderFactio(id){
   if(!f){d.className='sec factio';d.innerHTML='<a class="back" data-go="/factions">← Tous les dossiers</a><p>Dossier introuvable.</p>';return;}
   d.className='sec factio factio-'+id;
   d.style.setProperty('--c',f.c);
+  const mine=canTrack(id);
   d.innerHTML=`<a class="back" data-go="/factions">← Tous les dossiers</a>
     <span class="eyebrow" style="color:${f.c}">${f.tag}</span>
     <h2>${f.name}<span class="accentbar"></span></h2>
@@ -656,13 +746,14 @@ function renderFactio(id){
         <p class="lbio">${f.leader.bio}</p>
         <div class="traits">${f.leader.traits.map(t=>`<span>${t}</span>`).join('')}</div></div>
     </div>
-    ${HEROTABLE[f.id] ? heroTableHTML(f.id) : heroPathHTML(f.id)}
+    ${HEROTABLE[f.id] ? heroTableHTML(f.id, mine) : heroPathHTML(f.id)}
     ${armyHTML(f.id)}
     <div class="subhead">Récompenses de campagne</div>
     ${rewardsHTML(f.id)}
     <div class="subhead">Rôle dans la campagne</div>
     <div class="role"><p>${f.role}</p></div>
     <p class="note">Dirigeant, voie du héros, armée et récompenses provisoires — à valider.</p>`;
+  if(mine && HEROTABLE[id]) buildRecap(id);
 }
 function renderActs(){
   const l=document.getElementById('actsList'); l.innerHTML='';
@@ -727,25 +818,57 @@ function renderJournal(){
     <h3>${e.title}</h3>${e.body.map(p=>`<p>${p}</p>`).join('')}</article>`)));
 }
 
-function heroTableHTML(id){
+function heroTableHTML(id, track){
   const h=HEROTABLE[id]; if(!h) return '';
-  const vrow=r=>`<div class="hrow">
-    <div class="hrow-h"><span class="htitre">${r.titre}</span><span class="hseuil">Seuil ${r.seuil}</span></div>
-    <div class="hfait"><span class="hlab">Fait d'arme</span>${r.fait}</div>
-    <div class="hregle">${r.regle}</div></div>`;
-  const cr=h.couronnement;
-  const crown=cr?`<div class="hrow crown">
-    <div class="hrow-h"><span class="htitre">${cr.titre}</span><span class="hseuil crownseuil">Couronnement</span></div>
-    <div class="hfait"><span class="hlab">Déblocage</span>${cr.fait}</div>
-    <div class="hregle">${cr.regle}</div></div>`:'';
-  const mrow=r=>`<div class="hrow malusrow">
-    <div class="hrow-h"><span class="htitre">${r.titre}</span><span class="hseuil malseuil">Seuil ${r.seuil}${r.irr?' · irréversible':''}</span></div>
-    <div class="hfait"><span class="hlab">Fait d'arme négatif</span>${r.fait}</div>
-    <div class="hregle">${r.effet}</div></div>`;
+  const prog = track ? (ME.progress[id]||{}) : {};
+  const entry=(r,kind,i)=>{
+    const isM=kind==='m';
+    if(!track){
+      return `<div class="hrow ${isM?'malusrow':''}">
+        <div class="hrow-h"><span class="htitre">${r.titre}</span><span class="hseuil ${isM?'malseuil':''}">Seuil ${r.seuil}${r.irr?' · irréversible':''}</span></div>
+        <div class="hfait"><span class="hlab">Fait d'arme${isM?' négatif':''}</span>${r.fait}</div>
+        <div class="hregle">${isM?r.effet:r.regle}</div></div>`;
+    }
+    const key=kind+i, seuil=parseInt(r.seuil,10)||1, count=prog[key]||0;
+    const unlocked=count>=seuil, p=Math.min(count/seuil,1);
+    return `<div class="hrow ${isM?'malusrow':''} track ${unlocked?'unlocked':''}" data-fac="${id}" data-kind="${kind}" data-key="${key}" data-seuil="${seuil}" style="--p:${p}">
+      <div class="hrow-h">
+        <span class="htitre">${r.titre}</span>
+        <span class="hstate">
+          <span class="hbadge">${isM?'Subi':'Débloqué'}</span>
+          <span class="hcount"><b class="cval">${count}</b> / ${seuil}</span>
+          <button class="tbtn minus" aria-label="Retirer">−</button>
+          <button class="tbtn plus" aria-label="Ajouter">+</button>
+        </span>
+      </div>
+      <div class="hseuil-line"><span class="hseuil ${isM?'malseuil':''}">Seuil ${r.seuil}${r.irr?' · irréversible':''}</span></div>
+      <div class="hfait"><span class="hlab">Fait d'arme${isM?' négatif':''}</span>${r.fait}</div>
+      <div class="hregle">${isM?r.effet:r.regle}</div></div>`;
+  };
+  const voie=h.voie.map((r,i)=>entry(r,'v',i)).join('');
+  const malus=h.malus.map((r,i)=>entry(r,'m',i)).join('');
+  const cr=h.couronnement; let crown='';
+  if(cr){
+    if(track){
+      const n=h.voie.reduce((a,r,i)=>a+(((prog['v'+i]||0)>=(parseInt(r.seuil,10)||1))?1:0),0), on=n>=3;
+      crown=`<div class="hrow crown ${on?'unlocked':'locked'}" data-fac="${id}" data-kind="crown">
+        <div class="hrow-h"><span class="htitre">${cr.titre}</span><span class="hseuil crownseuil">Couronnement</span></div>
+        <div class="hfait"><span class="hlab">Déblocage</span>${cr.fait}</div>
+        <div class="hregle">${cr.regle}</div>
+        <div class="crownstate">${on?'✦ Couronnement débloqué — 3 titres obtenus':('Verrouillé — '+Math.min(n,3)+'/3 titres requis')}</div></div>`;
+    } else {
+      crown=`<div class="hrow crown">
+        <div class="hrow-h"><span class="htitre">${cr.titre}</span><span class="hseuil crownseuil">Couronnement</span></div>
+        <div class="hfait"><span class="hlab">Déblocage</span>${cr.fait}</div>
+        <div class="hregle">${cr.regle}</div></div>`;
+    }
+  }
+  const recap = track ? `<div id="recap-${id}" class="recap"></div>` : '';
   return `<div class="subhead">Voie du héros</div>
-    <div class="herotable">${h.voie.map(vrow).join('')}${crown}</div>
+    ${recap}
+    <div class="herotable" data-fac="${id}">${voie}${crown}</div>
     <div class="subhead">Tableau des malus</div>
-    <div class="herotable">${h.malus.map(mrow).join('')}</div>`;
+    <div class="herotable" data-fac="${id}">${malus}</div>`;
 }
 function heroPathHTML(id){
   const h=HEROPATH[id]; if(!h) return '';
@@ -792,9 +915,12 @@ function go(route){
   if(p[0]==='factions'&&p[1]){renderFactio(p[1]);show('v-factio');setActive('/factions');}
   else if(p[0]==='actes'&&p[1]){renderActe(p[1]);show('v-acte');setActive('/actes');}
   else{const base='/'+(p[0]||'');show(VIEWS[base]||'v-accueil');setActive(p[0]?base:'/');}
+  CUR=route;
   try{window.scrollTo(0,0);}catch(e){}
 }
 document.addEventListener('click',e=>{
+  const tb=e.target.closest('.tbtn');
+  if(tb){ e.preventDefault(); const row=tb.closest('.hrow.track'); if(row) adjustEntry(row, tb.classList.contains('plus')?1:-1); return; }
   const j=e.target.closest('[data-jump]');
   if(j){e.preventDefault();const t=document.getElementById(j.getAttribute('data-jump'));if(t)t.scrollIntoView({behavior:'smooth',block:'start'});return;}
   const t=e.target.closest('[data-go]');if(!t)return;e.preventDefault();go(t.getAttribute('data-go'));
