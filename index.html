@@ -186,13 +186,14 @@ nav.links a:focus-visible{outline:2px solid var(--gold-bright); outline-offset:2
 .rrow .rp{font-family:var(--display);font-size:.82rem;letter-spacing:.05em;color:var(--c);white-space:nowrap}
 /* fonds thématiques par faction */
 .factio{position:relative;isolation:isolate}
-.factio::before{content:"";position:absolute;inset:-30px -40px 0;z-index:-1;pointer-events:none;opacity:.7;background:radial-gradient(120% 55% at 50% -8%, color-mix(in srgb,var(--c) 15%,transparent), transparent 58%)}
-.factio::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;opacity:.05}
-.factio-necrons::after{background-image:repeating-linear-gradient(90deg,var(--c) 0 1px,transparent 1px 28px)}
-.factio-red-choir::after{background-image:repeating-linear-gradient(45deg,var(--c) 0 2px,transparent 2px 22px)}
-.factio-treizieme-cantique::after{background-image:repeating-radial-gradient(circle at 72% 14%,var(--c) 0 1px,transparent 1px 26px)}
-.factio-custodes::after{background-image:repeating-conic-gradient(from 0deg at 50% -2%,var(--c) 0deg 1deg,transparent 1deg 9deg)}
-.factio-krieg::after{background-image:repeating-linear-gradient(0deg,var(--c) 0 1px,transparent 1px 30px),repeating-linear-gradient(90deg,var(--c) 0 1px,transparent 1px 30px)}
+.factio::before{content:"";position:absolute;inset:-30px -40px 0;z-index:-1;pointer-events:none;opacity:.9;background:radial-gradient(130% 60% at 50% -10%, color-mix(in srgb,var(--c) 20%,transparent), transparent 60%)}
+.factio::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background-repeat:no-repeat;opacity:.12}
+.factio-necrons::after{opacity:.12;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cg fill='none' stroke='%2354CBA6' stroke-width='1.1'%3E%3Cpath d='M320 34H196l-26 26H30'/%3E%3Cpath d='M170 60v70l26 26h124'/%3E%3Cpath d='M30 60v46l30 30h70'/%3E%3Cpath d='M320 168H214l-32 32v120'/%3E%3Ccircle cx='170' cy='60' r='3'/%3E%3Ccircle cx='182' cy='200' r='3'/%3E%3Ccircle cx='60' cy='106' r='2.5'/%3E%3C/g%3E%3C/svg%3E"),repeating-linear-gradient(90deg,var(--c) 0 1px,transparent 1px 32px);background-repeat:no-repeat,repeat;background-position:top right,top left;background-size:360px auto,auto;animation:necronpulse 6s ease-in-out infinite}
+@keyframes necronpulse{0%,100%{opacity:.1}50%{opacity:.18}}
+.factio-red-choir::after{opacity:.16;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='150'%3E%3Cg fill='%23C03A2B'%3E%3Cpath d='M32 0c3 34 0 44 0 60a7 7 0 1 1-8 0c0-16-3-26 0-60z'/%3E%3Cpath d='M128 0c2 56 0 68 0 88a6 6 0 1 1-6 0c0-20-2-32 0-88z'/%3E%3Cpath d='M222 0c3 24 0 30 0 42a6 6 0 1 1-7 0c0-12-2-18 0-42z'/%3E%3Ccircle cx='74' cy='100' r='3'/%3E%3Ccircle cx='180' cy='124' r='2.5'/%3E%3Ccircle cx='250' cy='72' r='2'/%3E%3C/g%3E%3C/svg%3E");background-repeat:repeat-x;background-position:top;background-size:320px auto}
+.factio-treizieme-cantique::after{opacity:.12;background-image:repeating-radial-gradient(circle at 76% 12%,var(--c) 0 1px,transparent 1px 20px),repeating-radial-gradient(circle at 14% 92%,var(--c) 0 1px,transparent 1px 26px)}
+.factio-custodes::after{opacity:.1;background-image:repeating-conic-gradient(from 0deg at 50% -4%,var(--c) 0deg .8deg,transparent .8deg 8deg)}
+.factio-krieg::after{opacity:.1;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200'%3E%3Cg fill='none' stroke='%23A79A66' stroke-width='1.2'%3E%3Ccircle cx='78' cy='64' r='34'/%3E%3Ccircle cx='158' cy='64' r='34'/%3E%3Cpath d='M112 64h12'/%3E%3C/g%3E%3C/svg%3E"),repeating-linear-gradient(0deg,var(--c) 0 1px,transparent 1px 30px),repeating-linear-gradient(90deg,var(--c) 0 1px,transparent 1px 30px);background-repeat:no-repeat,repeat,repeat;background-position:top right,top left,top left;background-size:300px auto,auto,auto}
 /* voie du héros */
 .hero-intro{max-width:760px;font-style:italic;color:var(--bone-dim);margin:14px 0 16px}
 .heropath{--bc:var(--c);max-width:760px}
@@ -255,23 +256,32 @@ nav.links a.logout:hover{color:var(--sang)}
 .hregle{color:#d8cdb4;font-size:.96rem}
 .hregle b{color:var(--bone);font-weight:400;font-family:var(--display);letter-spacing:.02em}
 /* tracker héros */
-.hrow.track{transition:box-shadow .35s ease, border-color .35s ease}
-.hrow.track{box-shadow:0 0 calc(var(--p,0)*22px) calc(var(--p,0)*-4px) color-mix(in srgb, var(--c) 85%, transparent)}
-.hrow.malusrow.track{box-shadow:0 0 calc(var(--p,0)*22px) calc(var(--p,0)*-4px) rgba(154,86,72,.85)}
-.hrow.track.unlocked{border-left-color:var(--c);box-shadow:0 0 26px -5px var(--c), inset 0 0 0 1px color-mix(in srgb,var(--c) 38%,transparent)}
-.hrow.malusrow.track.unlocked{box-shadow:0 0 24px -5px #9a5648, inset 0 0 0 1px rgba(154,86,72,.5)}
+.hrow.track{--fx:var(--c); position:relative; overflow:hidden; transition:box-shadow .35s ease, border-color .35s ease}
+.hrow.malusrow.track{--fx:#b05646}
+.hrow.track{box-shadow:0 0 calc(var(--p,0)*22px) calc(var(--p,0)*-4px) color-mix(in srgb, var(--fx) 85%, transparent)}
+.hrow.track.unlocked{border-left-color:var(--fx); box-shadow:0 0 28px -5px var(--fx), inset 0 0 0 1px color-mix(in srgb,var(--fx) 40%,transparent), inset 0 22px 44px -32px var(--fx)}
+.hrow.track.unlocked::after{content:"✦"; position:absolute; bottom:9px; right:13px; font-size:.85rem; color:var(--fx); opacity:.85; text-shadow:0 0 10px var(--fx)}
 .hstate{display:flex;align-items:center;gap:8px;white-space:nowrap}
-.hbadge{display:none;font-family:var(--display);font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ink);background:var(--c);padding:3px 8px;border-radius:2px}
+.hbadge{display:none;font-family:var(--display);font-size:.52rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ink);background:var(--fx);padding:3px 8px;border-radius:2px}
 .hrow.track.unlocked .hbadge{display:inline-block;animation:badgepulse 2.6s ease-in-out infinite}
-.hrow.malusrow.track.unlocked .hbadge{background:#9a5648;color:var(--bone)}
+.hrow.malusrow.track.unlocked .hbadge{color:var(--bone)}
 @keyframes badgepulse{0%,100%{opacity:1}50%{opacity:.5}}
+.hrow.track.just-unlocked{animation:ignite 1.15s cubic-bezier(.2,.7,.2,1)}
+.hrow.track.just-unlocked::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:2;background:linear-gradient(115deg,transparent 34%,color-mix(in srgb,var(--fx) 65%,transparent) 50%,transparent 66%);transform:translateX(-130%);animation:shine 1.15s ease-out}
+@keyframes ignite{0%{transform:scale(1);box-shadow:0 0 0 0 var(--fx)}14%{transform:scale(1.025);box-shadow:0 0 48px 9px var(--fx)}100%{transform:scale(1);box-shadow:0 0 28px -5px var(--fx)}}
+@keyframes shine{to{transform:translateX(130%)}}
 .hcount{font-family:var(--display);font-size:.74rem;letter-spacing:.05em;color:var(--bone-dim)}
 .hcount .cval{color:var(--bone)}
 .tbtn{width:27px;height:27px;border:1px solid var(--line-strong);background:var(--ink);color:var(--bone);border-radius:2px;cursor:pointer;font-size:1.05rem;font-family:var(--display);display:inline-grid;place-items:center;line-height:1;padding:0}
 .tbtn:hover{border-color:var(--c);color:var(--c)}
 .hseuil-line{margin:9px 0 0}
+.gmview{font-family:var(--display);font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;color:var(--bone-dim);border:1px dashed var(--line-strong);padding:8px 12px;margin:6px 0 12px;max-width:820px}
+.hrow.crown{position:relative;overflow:hidden;--fx:var(--gold-bright)}
 .hrow.crown.locked{opacity:.72}
-.hrow.crown.unlocked{box-shadow:0 0 26px -6px var(--gold-bright)}
+.hrow.crown.unlocked{box-shadow:0 0 30px -6px var(--gold-bright)}
+.hrow.crown.unlocked::after{content:"✦";position:absolute;bottom:9px;right:13px;font-size:.9rem;color:var(--gold-bright);text-shadow:0 0 12px var(--gold-bright)}
+.hrow.crown.just-unlocked{animation:ignite 1.15s cubic-bezier(.2,.7,.2,1)}
+.hrow.crown.just-unlocked::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:2;background:linear-gradient(115deg,transparent 34%,color-mix(in srgb,var(--gold-bright) 70%,transparent) 50%,transparent 66%);transform:translateX(-130%);animation:shine 1.15s ease-out}
 .crownstate{margin-top:11px;font-family:var(--display);font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--bone-dim)}
 .hrow.crown.unlocked .crownstate{color:var(--gold-bright)}
 .recap{border:1px solid var(--line);background:var(--ink2);padding:14px 16px;margin:8px 0 18px;max-width:820px}
@@ -451,16 +461,25 @@ async function doLogin(){
 }
 async function doLogout(){ if(sb) await sb.auth.signOut(); }
 
-let ME={role:null,factions:[],progress:{}}; let CUR='/';
+let ME={role:null,factions:[],progress:{}}; let ALLPROG={}; let CUR='/';
 async function loadMe(){
-  ME={role:null,factions:[],progress:{}};
+  ME={role:null,factions:[],progress:{}}; ALLPROG={};
   try{
     const {data:{user}}=await sb.auth.getUser(); if(!user) return;
     const {data:prof}=await sb.from('profiles').select('role,factions').eq('id',user.id).single();
     if(prof){ ME.role=prof.role; ME.factions=prof.factions||[]; }
     const {data:rows}=await sb.from('hero_progress').select('faction,data').eq('user_id',user.id);
     (rows||[]).forEach(function(r){ ME.progress[r.faction]=r.data||{}; });
+    if(ME.role==='admin'){
+      const {data:all}=await sb.from('hero_progress').select('faction,data');
+      (all||[]).forEach(function(r){ if((ME.factions||[]).indexOf(r.faction)<0) ALLPROG[r.faction]=r.data||{}; });
+    }
   }catch(e){}
+}
+function heroMode(id){
+  if((ME.factions||[]).indexOf(id)>=0) return 'edit';
+  if(ME.role==='admin') return 'view';
+  return 'static';
 }
 async function onSession(session){
   if(session){ await loadMe(); showApp(true); go(CUR); }
@@ -483,12 +502,14 @@ function updateCrown(fac){
   const crown=document.querySelector('.hrow.crown[data-fac="'+fac+'"]'); if(!crown) return;
   const rows=[].slice.call(document.querySelectorAll('.hrow.track[data-kind="v"][data-fac="'+fac+'"]'));
   const n=rows.filter(function(r){return r.classList.contains('unlocked');}).length, on=n>=3;
+  const was=crown.classList.contains('unlocked');
   crown.classList.toggle('unlocked',on); crown.classList.toggle('locked',!on);
+  if(on && !was) igniteRow(crown);
   const st=crown.querySelector('.crownstate'); if(st)st.textContent = on?'✦ Couronnement débloqué — 3 titres obtenus':('Verrouillé — '+Math.min(n,3)+'/3 titres requis');
 }
-function buildRecap(fac){
+function buildRecap(fac, prog){
   const host=document.getElementById('recap-'+fac); if(!host) return;
-  const h=HEROTABLE[fac]; if(!h) return; const prog=ME.progress[fac]||{};
+  const h=HEROTABLE[fac]; if(!h) return; prog=prog||ME.progress[fac]||{};
   const actV=h.voie.filter(function(r,i){return (prog['v'+i]||0)>=(parseInt(r.seuil,10)||1);}).map(function(r){return r.titre;});
   const actM=h.malus.filter(function(r,i){return (prog['m'+i]||0)>=(parseInt(r.seuil,10)||1);}).map(function(r){return r.titre;});
   const crownOn=h.voie.filter(function(r,i){return (prog['v'+i]||0)>=(parseInt(r.seuil,10)||1);}).length>=3;
@@ -502,12 +523,20 @@ function buildRecap(fac){
   f+='</div></div>';
   host.innerHTML=f;
 }
+function igniteRow(row){
+  if(!row) return;
+  row.classList.remove('just-unlocked'); void row.offsetWidth; row.classList.add('just-unlocked');
+  setTimeout(function(){ row.classList.remove('just-unlocked'); }, 1150);
+}
 function adjustEntry(row,delta){
-  const fac=row.dataset.fac,key=row.dataset.key;
+  const fac=row.dataset.fac,key=row.dataset.key,seuil=parseInt(row.dataset.seuil,10)||1;
   ME.progress[fac]=ME.progress[fac]||{};
-  let c=(ME.progress[fac][key]||0)+delta; if(c<0)c=0;
+  const old=ME.progress[fac][key]||0;
+  let c=old+delta; if(c<0)c=0;
   ME.progress[fac][key]=c;
-  paintEntry(row); updateCrown(fac); buildRecap(fac); saveProgress(fac);
+  paintEntry(row);
+  if(old<seuil && c>=seuil) igniteRow(row);
+  updateCrown(fac); buildRecap(fac); saveProgress(fac);
 }
 function initAuth(){
   if(!window.supabase){ gateMsg("Service indisponible (connexion internet ?)."); return; }
@@ -533,8 +562,8 @@ const FACTIONS = [
     role:"La marée qui ne négocie pas. Leur progression dicte le rythme brutal de la campagne." },
   { id:"treizieme-cantique", name:"Le Treizième Cantique", real:"Emperor's Children — Le Treizième Cantique", tag:"Chaos · Slaanesh", c:"#B057D6",
     lore:["Si le Chœur Rouge s'est tu, le Treizième Cantique est venu pour écouter. La résonance du Nœud est, pour eux, la plus parfaite des sensations jamais offertes à la galaxie. Ils ne veulent pas la détruire. Ils veulent la posséder, la prolonger, s'y noyer.",
-      "Leurs guerres sont des compositions. Chaque assaut module la douleur et l'extase comme un mouvement de symphonie, et leurs sonance-armes font éclater la chair en accords."],
-    leader:{name:"DELPHÉA", title:"l'Archisonneur · Maître de chapelle", bio:"Première oreille du Cantique, Delphéa entend dans la note du Nœud une œuvre inachevée qu'elle compte terminer. Sa sonance-arme, dit-on, a déjà fait s'agenouiller des compagnies entières d'extase et d'effroi mêlés.", traits:["Oreille parfaite","Sonance-arme unique"]},
+      "Leurs guerres sont des compositions. Chaque assaut module la douleur et l'extase comme un mouvement de symphonie, et leurs armes soniques font éclater la chair en accords."],
+    leader:{name:"SIGRIM LE FOURBE", title:"l'Archisonneur · Maître de chapelle", bio:"Première oreille du Cantique, Sigrim le Fourbe entend dans la note du Nœud une œuvre inachevée qu'il compte terminer. Sa arme sonique, dit-on, a déjà fait s'agenouiller des compagnies entières d'extase et d'effroi mêlés.", traits:["Oreille parfaite","Arme sonique unique"]},
     role:"Les seuls à comprendre le Nœud comme une œuvre. Cela les rend imprévisibles — et patients." },
   { id:"custodes", name:"La Garde Cytheréenne", real:"Adeptus Custodes", tag:"Imperium · Talons d'or", c:"#E6C871",
     lore:["Que des Custodes aient quitté Terra pour un système oublié dit assez la gravité de ce qui s'éveille. Ils ne sont qu'une poignée — mais chacun vaut une compagnie, et chacun sait précisément ce que le Nœud menace de défaire.",
@@ -575,7 +604,7 @@ const DESTINEES=[
           {tier:"Fardeau II",name:"Dormance",trig:"Après 3 défaites.",eff:"Une unité débute chaque bataille en stase et n'arrive qu'en renfort.",active:false}] },
   { id:"treizieme-cantique", root:"La Note — chaque excès rapproche le Cantique de la fréquence parfaite.",
     asc:[{tier:"Faveur I",name:"Crescendo",trig:"Après 1 victoire.",eff:"+1 au mouvement durant la première manche.",active:true},
-         {tier:"Faveur II",name:"L'Accord Parfait",trig:"Après 3 victoires.",eff:"Une sonance-arme par bataille impose un test de moral aggravé à sa cible.",active:false}],
+         {tier:"Faveur II",name:"L'Accord Parfait",trig:"Après 3 victoires.",eff:"Une arme sonique par bataille impose un test de moral aggravé à sa cible.",active:false}],
     ruin:[{tier:"Fardeau I",name:"Dissonance",trig:"Après 1 défaite.",eff:"Distraite par sa propre douleur, l'armée perd une relance par manche.",active:false},
           {tier:"Fardeau II",name:"Saturation",trig:"Après la perte du dirigeant.",eff:"Une unité aléatoire, submergée d'extase, ne peut agir à la première manche.",active:false}] },
   { id:"custodes", root:"Le Verdict — les Talons d'or appliquent une sentence qu'eux seuls connaissent.",
@@ -603,8 +632,8 @@ const ARMIES={
     {unit:"Lychguard",role:"Élite",pts:170},
     {unit:"Spectres Skorpekh",role:"Attaque rapide",pts:150},
     {unit:"Monolithe",role:"Soutien",pts:250}]},
-  "treizieme-cantique":{style:"Vitesse et frappes chirurgicales ; les sonance-armes brisent le moral avant la lame.",format:"≈ 2000 pts (provisoire)",roster:[
-    {unit:"Delphéa, Archisonneur",role:"Seigneur de guerre",pts:160},
+  "treizieme-cantique":{style:"Vitesse et frappes chirurgicales ; les armes soniques brisent le moral avant la lame.",format:"≈ 2000 pts (provisoire)",roster:[
+    {unit:"Sigrim le Fourbe, Archisonneur",role:"Seigneur de guerre",pts:160},
     {unit:"Marines du Bruit ×2",role:"Troupe",pts:200},
     {unit:"Lames Sans Défaut",role:"Élite rapide",pts:180},
     {unit:"Extatiques",role:"Élite",pts:150},
@@ -631,8 +660,8 @@ const HEROPATH={
     {tier:"Échelon I",name:"Fragment de Protocole",trig:"Après avoir remporté un objectif.",eff:"Les unités à portée de Szareth améliorent leur réanimation.",active:false},
     {tier:"Échelon II",name:"Commandement Éveillé",trig:"Après avoir survécu à un acte entier.",eff:"Une fois par bataille, relever une unité détruite près de lui.",active:false},
     {tier:"Échelon III",name:"Le Protocole Complet",trig:"À la révélation du Nœud.",eff:"Szareth se reconstitue à chaque manche : presque indestructible.",active:false}]},
-  "treizieme-cantique":{intro:"Chaque champ de bataille est une répétition. Delphéa s'approche, mesure après mesure, de l'accord parfait.",nodes:[
-    {tier:"Échelon I",name:"Première Mesure",trig:"Après avoir brisé une unité au moral.",eff:"La sonance-arme de Delphéa ignore le couvert.",active:true},
+  "treizieme-cantique":{intro:"Chaque champ de bataille est une répétition. Sigrim le Fourbe s'approche, mesure après mesure, de l'accord parfait.",nodes:[
+    {tier:"Échelon I",name:"Première Mesure",trig:"Après avoir brisé une unité au moral.",eff:"La arme sonique de Sigrim le Fourbe ignore le couvert.",active:true},
     {tier:"Échelon II",name:"Contrepoint",trig:"Après 3 victoires.",eff:"Les unités amies à portée relancent les tests de moral ratés.",active:false},
     {tier:"Échelon III",name:"L'Accord Final",trig:"En atteignant le cœur du Nœud.",eff:"Une fois par campagne, les ennemis proches subissent un test de moral aggravé.",active:false}]},
   "custodes":{intro:"Aelric exécute une sentence dont lui seul connaît les termes. Chaque jugement rendu le rapproche du verdict.",nodes:[
@@ -698,6 +727,48 @@ const HEROTABLE={
       {fait:"Utiliser La Volonté de l'Empereur (exécution sommaire) un total de 5 fois cumulées sur la campagne.", seuil:"5", irr:true, titre:"Il N'écoute Plus Les Vivants", effet:"Kessler ne peut plus jamais être ciblé par un Ordre lancé par un autre personnage — il n'obéit plus qu'à son propre registre."},
       {fait:"Voir l'unité de cavalerie liée à Pour l'Empereur être entièrement détruite lors d'une bataille.", seuil:"1", titre:"Le Nom Rayé", effet:"Le bonus permanent de Pour l'Empereur (+1F/+1AP/+1D) est perdu pour le reste de la campagne — suspendu si une nouvelle unité de cavalerie KRIEG débloque Pour l'Empereur à son tour."}
     ]
+  },
+  "necrons":{
+    voie:[
+      {fait:"PV rendus à l'unité de Szareth par les Reanimation Protocols, cumulés sur toute la campagne.", seuil:"20", titre:"Le Protocole S'Affûte", regle:"<b>Réveil Perpétuel</b> — 20+ : +1 aux jets de Reanimation Protocols. 30+ : relance en plus les jets ratés. 50+ : les unités ÉVEILLÉS à 6&quot; ajoutent aussi 1."},
+      {fait:"Détruire un modèle CHARACTER ennemi et « l'inscrire au recensement » (Szareth ou son unité porte le coup fatal).", seuil:"2", titre:"Le Recensement des Vivants", regle:"<b>Ils Sont Classés</b> — contre les CHARACTER, l'unité de Szareth gagne Lethal Hits."},
+      {fait:"Terminer une bataille en ayant contrôlé un objectif en permanence, sans jamais le céder.", seuil:"2", titre:"L'Avance Ne Recule Pas", regle:"<b>Marche du Métal Ancien</b> — chaque modèle de l'unité de Szareth compte double pour le contrôle des objectifs (OC)."},
+      {fait:"Szareth réduit à un tiers de ses PV ou moins, et survit jusqu'à la fin de la bataille.", seuil:"3", titre:"Le Métal Ne Meurt Pas", regle:"<b>Chair de Nécrodermis</b> — Szareth gagne Feel No Pain 5+, de façon permanente."}
+    ],
+    couronnement:{fait:"Verrouillé jusqu'à l'obtention de 3 des 4 titres ci-dessus.", titre:"La Convocation Répond", regle:"<b>Rappel Dynastique</b> — une fois par bataille, si Szareth est détruit, il se relève en fin de phase avec la moitié de ses PV, à 3&quot; de sa position (ni charge ni tir ce tour-là)."},
+    malus:[
+      {fait:"Szareth détruit et retiré du jeu sans se relever (Rappel Dynastique non déclenché ou pas encore débloqué).", seuil:"1", irr:true, titre:"Le Protocole a Failli", effet:"<b>Fêlure dans le Métal Éternel</b> — les jets de Reanimation Protocols de son unité subissent -1 en permanence."},
+      {fait:"L'unité de Szareth Falls Back au cours d'une bataille.", seuil:"1", titre:"Le Recul Impensable", effet:"-1 OC lors de sa bataille suivante. Rédemption : levée si son unité contrôle un objectif du début à la fin de cette bataille suivante, sans jamais le céder."},
+      {fait:"Un CHARACTER ennemi engagé au corps-à-corps avec Szareth survit et quitte le combat vivant.", seuil:"1", titre:"Le Recensement Inachevé", effet:"Son unité perd Lethal Hits contre les CHARACTER lors de sa bataille suivante. Rédemption : levée dès que Szareth ou son unité détruit un modèle CHARACTER."}
+    ]
+  },
+  "red-choir":{
+    voie:[
+      {fait:"Infliger la mort de modèles ennemis en corps-à-corps, cumulés sur toute la campagne, par Vortak lui-même ou son unité.", seuil:"10", titre:"Le Chœur Compte Ses Morts", regle:"<b>Litanie du Sang</b> — 10+ : l'unité de Vortak gagne Sustained Hits 1 en mêlée. 20+ : passe à Sustained Hits 2. 40+ : les unités CHŒUR ROUGE à 9&quot; gagnent aussi Sustained Hits 1."},
+      {fait:"Remporter un duel contre un modèle CHARACTER ennemi (combat singulier arbitré).", seuil:"2", titre:"Le Duel Ne Se Refuse Pas", regle:"<b>Le Sang Appelle le Sang</b> — contre les CHARACTER uniquement : les jets pour blesser de Vortak obtiennent un critique sur 5+ au lieu de 6+. Vortak gagne également Précision (Precision)."},
+      {fait:"Terminer une bataille sans que son unité n'ait jamais Fallen Back.", seuil:"2", titre:"Le Geste Suffit", regle:"<b>Le Silence Commande</b> — aura permanente 6&quot; : les unités CHŒUR ROUGE amies relancent les tests de Battle-shock ratés."},
+      {fait:"Terminer une bataille réduit à la moitié de ses blessures ou moins, et survivre jusqu'à la fin de la partie.", seuil:"3", titre:"Le Sang Paie Ses Dettes", regle:"<b>Endurci par le Sacrifice</b> — Vortak gagne Feel No Pain 5+, de façon permanente."}
+    ],
+    couronnement:{fait:"Verrouillé jusqu'à l'obtention de 3 des 4 titres ci-dessus.", titre:"Le Silence Devient Cri", regle:"<b>Le Cri du Chœur</b> — une fois par bataille, au début d'un round de combat, Vortak et son unité gagnent Fights First pour ce round."},
+    malus:[
+      {fait:"Vortak ou son unité effectue une attaque à distance au cours d'une bataille.", seuil:"1", irr:true, titre:"Le Silence Trahi", effet:"Vortak perd définitivement l'accès à « Le Silence Commande » (l'aura de relance de Battle-shock ne s'applique plus jamais, même si le titre reste débloqué narrativement)."},
+      {fait:"L'unité de Vortak Falls Back alors qu'il est engagé au corps-à-corps avec un modèle CHARACTER ennemi (duel esquivé).", seuil:"1", titre:"Le Duel Refusé", effet:"Vortak subit -1 pour toucher contre les modèles CHARACTER. Rédemption : levée dès que Vortak remporte un duel contre un CHARACTER lors d'une bataille suivante."},
+      {fait:"L'unité de Vortak termine une bataille sans avoir tué le moindre modèle ennemi.", seuil:"1", titre:"Le Chœur Muet", effet:"Vortak subit -1 en Force lors de sa bataille suivante. Rédemption : levée si Vortak ou son unité inflige 5 tués ou plus lors de cette bataille suivante."}
+    ]
+  },
+  "treizieme-cantique":{
+    voie:[
+      {fait:"Détruire entièrement une unité ennemie au tir ou au corps à corps, au cours de la campagne.", seuil:"3", titre:"La Fréquence Parfaite", regle:"<b>Accord Dévastateur</b> — à chaque charge de Sigrim, sur un 4+ l'unité chargée subit D3 Blessures Mortelles."},
+      {fait:"Faire rater un test de commandement à une unité ennemie au corps à corps (au contact de Sigrim ou de son unité).", seuil:"2", titre:"Le Cri Qui Fauche", regle:"<b>Terreur Mélodique</b> — une fois par bataille, Sigrim force une unité ennemie à 9&quot; à relancer un test de commandement réussi."},
+      {fait:"Achever un PERSONNAGE ennemi (le réduire à 0 PV) au cours d'un même combat.", seuil:"2", titre:"Le Point d'Orgue", regle:"<b>Extase Assumée</b> — chaque fois que l'arme sonique de Sigrim blesse un PERSONNAGE ennemi, sur un 6 elle inflige une Blessure Mortelle supplémentaire."},
+      {fait:"Infliger la mort finale au dirigeant d'une faction rivale.", seuil:"1", titre:"Porteur de la Dernière Note", regle:"<b>Symphonie Achevée</b> — une fois par bataille, quand Sigrim achève un PERSONNAGE ennemi ou détruit entièrement une unité, les unités TREIZIÈME CANTIQUE à 6&quot; gagnent +1 pour toucher jusqu'à la fin de la phase."}
+    ],
+    couronnement:{fait:"Verrouillé jusqu'à l'obtention de 3 des 4 titres ci-dessus.", titre:"L'Apothéose Sonore", regle:"Le rayon de Symphonie Achevée passe de 6&quot; à 9&quot;, et devient : les unités TREIZIÈME CANTIQUE dans le rayon gagnent +1 pour toucher et +1 en Force jusqu'à la fin de la phase."},
+    malus:[
+      {fait:"À la fin d'un tour du TREIZIÈME CANTIQUE, Sigrim contrôle un objectif.", seuil:"1", irr:true, titre:"Le Sourd à Tout le Reste", effet:"Sigrim n'entend plus que la Note. Il ne peut plus bénéficier des règles spéciales ni des auras d'unités alliées du TREIZIÈME CANTIQUE, et il n'en émet plus lui-même (Symphonie Achevée, L'Apothéose Sonore et tout autre bonus allié sont perdus). En échange, tant qu'il combat, Sigrim gagne +1 pour toucher, +1 pour blesser et +1 en Force."},
+      {fait:"Terminer une bataille où l'unité de Sigrim n'a réussi à faire rater aucun test de commandement à l'ennemi.", seuil:"1", titre:"La Note Fausse", effet:"Sigrim doute de son oreille. Terreur Mélodique ne peut plus être utilisée tant que le malus est actif. Rédemption : effacé dès que Sigrim fait rater un test de commandement à une unité ennemie au corps à corps dans une bataille suivante."},
+      {fait:"Voir Sigrim réduit Hors de Combat au cours d'une bataille.", seuil:"1", titre:"La Corde Rompue", effet:"Son arme sonique se tait. Accord Dévastateur (si débloqué) est inactif jusqu'à la fin de sa prochaine bataille. Rédemption : la règle revient dès que Sigrim achève un PERSONNAGE ennemi dans cette bataille suivante."}
+    ]
   }
 };
 
@@ -732,7 +803,7 @@ function renderFactio(id){
   if(!f){d.className='sec factio';d.innerHTML='<a class="back" data-go="/factions">← Tous les dossiers</a><p>Dossier introuvable.</p>';return;}
   d.className='sec factio factio-'+id;
   d.style.setProperty('--c',f.c);
-  const mine=canTrack(id);
+  const mode=heroMode(id);
   d.innerHTML=`<a class="back" data-go="/factions">← Tous les dossiers</a>
     <span class="eyebrow" style="color:${f.c}">${f.tag}</span>
     <h2>${f.name}<span class="accentbar"></span></h2>
@@ -746,14 +817,14 @@ function renderFactio(id){
         <p class="lbio">${f.leader.bio}</p>
         <div class="traits">${f.leader.traits.map(t=>`<span>${t}</span>`).join('')}</div></div>
     </div>
-    ${HEROTABLE[f.id] ? heroTableHTML(f.id, mine) : heroPathHTML(f.id)}
+    ${HEROTABLE[f.id] ? heroTableHTML(f.id, mode) : heroPathHTML(f.id)}
     ${armyHTML(f.id)}
     <div class="subhead">Récompenses de campagne</div>
     ${rewardsHTML(f.id)}
     <div class="subhead">Rôle dans la campagne</div>
     <div class="role"><p>${f.role}</p></div>
     <p class="note">Dirigeant, voie du héros, armée et récompenses provisoires — à valider.</p>`;
-  if(mine && HEROTABLE[id]) buildRecap(id);
+  if(mode!=='static' && HEROTABLE[id]) buildRecap(id, mode==='edit' ? (ME.progress[id]||{}) : (ALLPROG[id]||{}));
 }
 function renderActs(){
   const l=document.getElementById('actsList'); l.innerHTML='';
@@ -818,9 +889,11 @@ function renderJournal(){
     <h3>${e.title}</h3>${e.body.map(p=>`<p>${p}</p>`).join('')}</article>`)));
 }
 
-function heroTableHTML(id, track){
+function heroTableHTML(id, mode){
   const h=HEROTABLE[id]; if(!h) return '';
-  const prog = track ? (ME.progress[id]||{}) : {};
+  const track = mode==='edit' || mode==='view';
+  const editable = mode==='edit';
+  const prog = mode==='edit' ? (ME.progress[id]||{}) : (mode==='view' ? (ALLPROG[id]||{}) : {});
   const entry=(r,kind,i)=>{
     const isM=kind==='m';
     if(!track){
@@ -831,14 +904,14 @@ function heroTableHTML(id, track){
     }
     const key=kind+i, seuil=parseInt(r.seuil,10)||1, count=prog[key]||0;
     const unlocked=count>=seuil, p=Math.min(count/seuil,1);
+    const ctrl = editable ? `<button class="tbtn minus" aria-label="Retirer">−</button><button class="tbtn plus" aria-label="Ajouter">+</button>` : '';
     return `<div class="hrow ${isM?'malusrow':''} track ${unlocked?'unlocked':''}" data-fac="${id}" data-kind="${kind}" data-key="${key}" data-seuil="${seuil}" style="--p:${p}">
       <div class="hrow-h">
         <span class="htitre">${r.titre}</span>
         <span class="hstate">
           <span class="hbadge">${isM?'Subi':'Débloqué'}</span>
           <span class="hcount"><b class="cval">${count}</b> / ${seuil}</span>
-          <button class="tbtn minus" aria-label="Retirer">−</button>
-          <button class="tbtn plus" aria-label="Ajouter">+</button>
+          ${ctrl}
         </span>
       </div>
       <div class="hseuil-line"><span class="hseuil ${isM?'malseuil':''}">Seuil ${r.seuil}${r.irr?' · irréversible':''}</span></div>
@@ -863,9 +936,10 @@ function heroTableHTML(id, track){
         <div class="hregle">${cr.regle}</div></div>`;
     }
   }
+  const banner = mode==='view' ? `<div class="gmview">Vue maître de campagne — progression du joueur, en lecture seule</div>` : '';
   const recap = track ? `<div id="recap-${id}" class="recap"></div>` : '';
   return `<div class="subhead">Voie du héros</div>
-    ${recap}
+    ${banner}${recap}
     <div class="herotable" data-fac="${id}">${voie}${crown}</div>
     <div class="subhead">Tableau des malus</div>
     <div class="herotable" data-fac="${id}">${malus}</div>`;
