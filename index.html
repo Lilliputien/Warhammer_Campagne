@@ -450,14 +450,20 @@ function showApp(on){
   if(on){ g.classList.add('hidden'); document.body.classList.remove('locked'); }
   else { g.classList.remove('hidden'); document.body.classList.add('locked'); }
 }
+let LOGIN_BUSY=false;
 async function doLogin(){
-  if(!sb) return;
+  if(!sb||LOGIN_BUSY) return;
   const email=(document.getElementById('g-email').value||'').trim();
   const pass=document.getElementById('g-pass').value||'';
   if(!email||!pass){ gateMsg("Renseigne ton e-mail et ton mot de passe."); return; }
+  LOGIN_BUSY=true;
   gateMsg("Connexion…");
-  const {error}=await sb.auth.signInWithPassword({email,password:pass});
-  gateMsg(error ? "E-mail ou mot de passe incorrect." : "");
+  try{
+    const {error}=await sb.auth.signInWithPassword({email,password:pass});
+    gateMsg(error ? "E-mail ou mot de passe incorrect." : "");
+  } finally {
+    LOGIN_BUSY=false;
+  }
 }
 async function doLogout(){ if(sb) await sb.auth.signOut(); }
 
@@ -548,6 +554,23 @@ function initAuth(){
   const p=document.getElementById('g-pass'); if(p) p.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
   const o=document.getElementById('logoutBtn'); if(o) o.addEventListener('click',e=>{e.preventDefault();doLogout();});
 }
+/* ------------------------------------------------------------
+   CORRECTIF — resynchro de session après bfcache / retour navigateur
+   Quand la page est restaurée depuis le cache de navigation
+   (bouton précédent, onglet resté inactif), le script ne rejoue pas
+   son initialisation : on force donc une relecture de la session
+   Supabase pour éviter un écran de connexion figé sur "Connexion…".
+   ------------------------------------------------------------ */
+function resyncSession(){
+  if(!sb) return;
+  sb.auth.getSession().then(({data})=>onSession(data.session));
+}
+window.addEventListener('pageshow', function(e){
+  if(e.persisted){ if(sb) resyncSession(); else location.reload(); }
+});
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState==='visible') resyncSession();
+});
 
 const FACTIONS = [
   { id:"necrons", name:"Les Éveillés", real:"Necrons — Dynastie inconnue", tag:"Xenos · Métal endormi", c:"#54CBA6",
