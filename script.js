@@ -14,6 +14,14 @@ function showApp(on){
   if(on){ g.classList.add('hidden'); document.body.classList.remove('locked'); }
   else { g.classList.remove('hidden'); document.body.classList.add('locked'); }
 }
+/* garde-fou : rejette une promesse qui ne se résout pas dans le délai imparti,
+   pour ne jamais rester figé sur "Connexion…" si Supabase/le réseau ne répond pas */
+function withTimeout(promise, ms, label){
+  return Promise.race([
+    promise,
+    new Promise((_,rej)=>setTimeout(()=>rej(new Error(label||'timeout')), ms))
+  ]);
+}
 let LOGIN_BUSY=false;
 async function doLogin(){
   if(!sb||LOGIN_BUSY) return;
@@ -23,8 +31,10 @@ async function doLogin(){
   LOGIN_BUSY=true;
   gateMsg("Connexion…");
   try{
-    const {error}=await sb.auth.signInWithPassword({email,password:pass});
+    const {error}=await withTimeout(sb.auth.signInWithPassword({email,password:pass}), 10000, 'login-timeout');
     gateMsg(error ? "E-mail ou mot de passe incorrect." : "");
+  } catch(e){
+    gateMsg("La connexion met trop de temps ou a échoué. Vérifie ta connexion et réessaie.");
   } finally {
     LOGIN_BUSY=false;
   }
@@ -41,19 +51,49 @@ async function loadMe(){
     const {data:rows}=await sb.from('hero_progress').select('faction,data').eq('user_id',user.id);
     (rows||[]).forEach(function(r){ ME.progress[r.faction]=r.data||{}; });
     if(ME.role==='admin'){
-      const {data:all}=await sb.from('hero_progress').select('faction,data');
-      (all||[]).forEach(function(r){ if((ME.factions||[]).indexOf(r.faction)<0) ALLPROG[r.faction]=r.data||{}; });
+      const {data:all}=await sb.from('hero_progress').select('user_id,faction,data');
+      (all||[]).forEach(function(r){
+        if(r.user_id===user.id) return;                     // ignorer mes propres lignes (bac à sable)
+        if((ME.factions||[]).indexOf(r.faction)>=0) return; // pas mes factions
+        ALLPROG[r.faction]=r.data||{};
+      });
     }
   }catch(e){}
 }
+let ADMIN_VIEW='sandbox';   // 'sandbox' : édition test · 'supervise' : progression réelle des joueurs (lecture seule)
 function heroMode(id){
-  if((ME.factions||[]).indexOf(id)>=0) return 'edit';
-  if(ME.role==='admin') return 'view';
+  const own=(ME.factions||[]).indexOf(id)>=0;
+  if(ME.role==='admin'){
+    if(own) return 'edit';                            // mes propres factions : toujours éditables
+    return ADMIN_VIEW==='sandbox' ? 'edit' : 'view';  // les autres : selon le toggle
+  }
+  if(own) return 'edit';
   return 'static';
 }
+function renderAdminToggle(){
+  const b=document.getElementById('adminToggle'); if(!b) return;
+  if(ME.role!=='admin'){ b.hidden=true; return; }
+  b.hidden=false;
+  const sandbox=ADMIN_VIEW==='sandbox';
+  b.textContent = sandbox ? 'Bac à sable' : 'Supervision';
+  b.title = sandbox
+    ? 'Mode test — édite les effets sans toucher la progression réelle. Cliquer pour superviser la progression réelle des joueurs.'
+    : 'Supervision — progression réelle des joueurs, en lecture seule. Cliquer pour repasser en bac à sable.';
+  b.setAttribute('aria-pressed', sandbox ? 'true' : 'false');
+  b.classList.toggle('is-supervise', !sandbox);
+}
+function toggleAdminView(){
+  ADMIN_VIEW = ADMIN_VIEW==='sandbox' ? 'supervise' : 'sandbox';
+  renderAdminToggle();
+  if(CUR && CUR.indexOf('/factions/')===0) go(CUR);   // re-render la faction affichée
+}
 async function onSession(session){
-  if(session){ await loadMe(); showApp(true); go(CUR); }
-  else { ME={role:null,factions:[],progress:{}}; showApp(false); }
+  if(session){
+    try{ await withTimeout(loadMe(), 12000, 'loadme-timeout'); }catch(e){}
+    renderAdminToggle();
+    showApp(true); go(CUR);
+  }
+  else { ME={role:null,factions:[],progress:{}}; renderAdminToggle(); showApp(false); }
 }
 function canTrack(id){ return ME.role==='admin' || (ME.factions||[]).indexOf(id)>=0; }
 async function saveProgress(fac){
@@ -112,11 +152,14 @@ function initAuth(){
   if(!window.supabase){ gateMsg("Service indisponible (connexion internet ?)."); return; }
   if(!SUPA_KEY || SUPA_KEY.indexOf('sb_')!==0){ gateMsg("Configuration à compléter dans le fichier (clé Supabase)."); return; }
   sb=window.supabase.createClient(SUPA_URL,SUPA_KEY);
-  sb.auth.getSession().then(({data})=>onSession(data.session));
+  withTimeout(sb.auth.getSession(), 8000, 'session-timeout')
+    .then(({data})=>onSession(data.session))
+    .catch(()=>{ showApp(false); gateMsg("Impossible de vérifier la session. Recharge la page."); });
   sb.auth.onAuthStateChange((_e,s)=>onSession(s));
   const b=document.getElementById('g-login'); if(b) b.addEventListener('click',doLogin);
   const p=document.getElementById('g-pass'); if(p) p.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
   const o=document.getElementById('logoutBtn'); if(o) o.addEventListener('click',e=>{e.preventDefault();doLogout();});
+  const at=document.getElementById('adminToggle'); if(at) at.addEventListener('click',e=>{e.preventDefault();toggleAdminView();});
 }
 /* ------------------------------------------------------------
    CORRECTIF — resynchro de session après bfcache / retour navigateur
@@ -127,7 +170,9 @@ function initAuth(){
    ------------------------------------------------------------ */
 function resyncSession(){
   if(!sb) return;
-  sb.auth.getSession().then(({data})=>onSession(data.session));
+  withTimeout(sb.auth.getSession(), 8000, 'resync-timeout')
+    .then(({data})=>onSession(data.session))
+    .catch(()=>{});
 }
 window.addEventListener('pageshow', function(e){
   if(e.persisted){ if(sb) resyncSession(); else location.reload(); }
@@ -392,6 +437,7 @@ function renderFactio(id){
   d.style.setProperty('--c',f.c);
   const mode=heroMode(id);
   d.innerHTML=`<a class="back" data-go="/factions">← Tous les dossiers</a>
+    <div class="factio-fx" aria-hidden="true"></div>
     <span class="eyebrow" style="color:${f.c}">${f.tag}</span>
     <h2>${f.name}<span class="accentbar"></span></h2>
     <div class="meta"><span class="chip">${f.real}</span></div>
@@ -523,7 +569,12 @@ function heroTableHTML(id, mode){
         <div class="hregle">${cr.regle}</div></div>`;
     }
   }
-  const banner = mode==='view' ? `<div class="gmview">Vue maître de campagne — progression du joueur, en lecture seule</div>` : '';
+  const adminOther = ME.role==='admin' && (ME.factions||[]).indexOf(id)<0;
+  const banner = mode==='view'
+    ? `<div class="gmview">Vue maître de campagne — progression réelle du joueur · lecture seule</div>`
+    : (adminOther && mode==='edit'
+        ? `<div class="gmview">Bac à sable — test des effets · sans impact sur la progression réelle du joueur</div>`
+        : '');
   const recap = track ? `<div id="recap-${id}" class="recap"></div>` : '';
   return `<div class="subhead">Voie du héros</div>
     ${banner}${recap}
