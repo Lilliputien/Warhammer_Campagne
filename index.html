@@ -190,6 +190,62 @@ nav.links a:focus-visible{outline:2px solid var(--gold-bright); outline-offset:2
 .factio::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background-repeat:no-repeat;opacity:.12}
 .factio-necrons::after{opacity:.12;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='320'%3E%3Cg fill='none' stroke='%2354CBA6' stroke-width='1.1'%3E%3Cpath d='M320 34H196l-26 26H30'/%3E%3Cpath d='M170 60v70l26 26h124'/%3E%3Cpath d='M30 60v46l30 30h70'/%3E%3Cpath d='M320 168H214l-32 32v120'/%3E%3Ccircle cx='170' cy='60' r='3'/%3E%3Ccircle cx='182' cy='200' r='3'/%3E%3Ccircle cx='60' cy='106' r='2.5'/%3E%3C/g%3E%3C/svg%3E"),repeating-linear-gradient(90deg,var(--c) 0 1px,transparent 1px 32px);background-repeat:no-repeat,repeat;background-position:top right,top left;background-size:360px auto,auto;animation:necronpulse 6s ease-in-out infinite}
 @keyframes necronpulse{0%,100%{opacity:.1}50%{opacity:.18}}
+
+/* ============================================================
+   COUCHE D'EFFETS SIGNATURE PAR FACTION (.factio-fx)
+   Fixe, plein écran, sous le contenu. Uniquement transform/opacity
+   /position/filter → GPU-friendly. Chaque faction a une identité
+   de mouvement propre pour un effet "wow" à l'ouverture du dossier.
+   ============================================================ */
+.factio-fx{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+.factio-fx::before,.factio-fx::after{content:"";position:absolute;pointer-events:none}
+
+/* — NECRONS : courant qui parcourt les circuits + motes de réanimation — */
+.factio-necrons .factio-fx::before{inset:-25% -15%;background:linear-gradient(115deg,transparent 43%,rgba(84,203,166,.16) 49%,rgba(150,255,220,.10) 50%,transparent 57%);animation:nec-sweep 5.5s linear infinite}
+@keyframes nec-sweep{0%{transform:translateX(-45%)}100%{transform:translateX(45%)}}
+.factio-necrons .factio-fx::after{inset:0;background-image:radial-gradient(circle,rgba(84,203,166,.55) 0 1.4px,transparent 2px);background-size:110px 130px;opacity:.22;animation:nec-motes 12s linear infinite}
+@keyframes nec-motes{from{background-position:0 130px}to{background-position:0 -130px}}
+.factio-necrons::after{animation:necronpulse 6s ease-in-out infinite}
+
+/* — CHŒUR ROUGE : battement de cœur de Khorne + gouttes qui coulent — */
+.factio-red-choir .factio-fx::before{inset:0;background:radial-gradient(82% 58% at 50% 42%,rgba(192,58,43,.20),transparent 70%);animation:khorne-beat 1.9s ease-in-out infinite}
+@keyframes khorne-beat{0%,50%,100%{opacity:.5;transform:scale(1)}12%{opacity:.95;transform:scale(1.035)}24%{opacity:.6;transform:scale(1.005)}36%{opacity:.88;transform:scale(1.02)}}
+.factio-red-choir .factio-fx::after{left:0;right:0;bottom:0;height:34%;background:radial-gradient(120% 100% at 50% 100%,rgba(140,20,14,.30),transparent 72%);animation:khorne-pool 3.8s ease-in-out infinite}
+@keyframes khorne-pool{0%,100%{opacity:.45}50%{opacity:.8}}
+.factio-red-choir::after{animation:blood-fall 7s linear infinite}
+@keyframes blood-fall{from{background-position:top}to{background-position:0 300px}}
+
+/* — TREIZIÈME CANTIQUE : ondes soniques qui se propagent + miroitement Slaanesh — */
+.factio-treizieme-cantique .factio-fx{filter:hue-rotate(0deg);animation:ec-hue 14s ease-in-out infinite}
+@keyframes ec-hue{0%,100%{filter:hue-rotate(-8deg)}50%{filter:hue-rotate(12deg)}}
+.factio-treizieme-cantique .factio-fx::before{inset:-30%;background:repeating-radial-gradient(circle at 50% 40%,transparent 0 30px,rgba(176,87,214,.20) 34px 36px,transparent 40px 70px);animation:ec-rings 4.2s linear infinite}
+@keyframes ec-rings{0%{transform:scale(.85);opacity:.6}100%{transform:scale(1.35);opacity:0}}
+.factio-treizieme-cantique .factio-fx::after{inset:-30%;background:repeating-radial-gradient(circle at 50% 40%,transparent 0 30px,rgba(214,140,240,.14) 34px 36px,transparent 40px 70px);animation:ec-rings 4.2s linear infinite;animation-delay:2.1s}
+
+/* — CUSTODES : rayons dorés qui balaient comme un phare + poussière d'or — */
+.factio-custodes .factio-fx::before{left:50%;top:-35%;width:220%;height:170%;transform:translateX(-50%);transform-origin:50% 0;background:repeating-conic-gradient(from 0deg at 50% 0,rgba(230,200,113,.12) 0deg .55deg,transparent .55deg 6.5deg);animation:cust-sweep 26s ease-in-out infinite}
+@keyframes cust-sweep{0%{transform:translateX(-50%) rotate(-7deg)}50%{transform:translateX(-50%) rotate(7deg)}100%{transform:translateX(-50%) rotate(-7deg)}}
+.factio-custodes .factio-fx::after{inset:0;background-image:radial-gradient(circle,rgba(230,200,113,.5) 0 1.3px,transparent 2px);background-size:150px 170px;opacity:.18;animation:cust-dust 16s linear infinite}
+@keyframes cust-dust{from{background-position:0 0}to{background-position:60px -170px}}
+.factio-custodes::after{animation:cust-breathe 7s ease-in-out infinite}
+@keyframes cust-breathe{0%,100%{opacity:.08}50%{opacity:.15}}
+
+/* — KRIEG : projecteur qui balaie la tranchée + brume de gaz + lentilles vacillantes — */
+.factio-krieg .factio-fx::before{top:0;bottom:0;width:40%;left:-40%;background:linear-gradient(90deg,transparent,rgba(167,154,102,.10) 45%,rgba(200,188,130,.16) 50%,rgba(167,154,102,.10) 55%,transparent);filter:blur(7px);animation:krieg-scan 12s ease-in-out infinite}
+@keyframes krieg-scan{0%{left:-40%}50%{left:100%}100%{left:-40%}}
+.factio-krieg .factio-fx::after{left:0;right:0;bottom:0;height:42%;background:linear-gradient(0deg,rgba(58,52,34,.30),transparent);animation:krieg-haze 8s ease-in-out infinite}
+@keyframes krieg-haze{0%,100%{opacity:.5;transform:translateY(6px)}50%{opacity:.85;transform:translateY(0)}}
+.factio-krieg::after{animation:krieg-flicker 6.5s ease-in-out infinite}
+@keyframes krieg-flicker{0%,100%{opacity:.1}44%{opacity:.14}46%{opacity:.07}48%{opacity:.13}70%{opacity:.11}}
+
+@media (prefers-reduced-motion:reduce){
+  .factio-fx,.factio-fx::before,.factio-fx::after,.factio::after{animation:none!important}
+}
+.admin-toggle{font-family:var(--display);font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--bone-dim);background:transparent;border:1px solid var(--line-strong);border-radius:2px;padding:6px 11px;margin-left:4px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;line-height:1;transition:border-color .2s,color .2s}
+.admin-toggle::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--gold);box-shadow:0 0 8px var(--gold);transition:background .2s,box-shadow .2s}
+.admin-toggle:hover{border-color:var(--gold);color:var(--bone)}
+.admin-toggle.is-supervise::before{background:#54CBA6;box-shadow:0 0 8px #54CBA6}
+.admin-toggle.is-supervise:hover{border-color:#54CBA6}
 .factio-red-choir::after{opacity:.16;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='280' height='150'%3E%3Cg fill='%23C03A2B'%3E%3Cpath d='M32 0c3 34 0 44 0 60a7 7 0 1 1-8 0c0-16-3-26 0-60z'/%3E%3Cpath d='M128 0c2 56 0 68 0 88a6 6 0 1 1-6 0c0-20-2-32 0-88z'/%3E%3Cpath d='M222 0c3 24 0 30 0 42a6 6 0 1 1-7 0c0-12-2-18 0-42z'/%3E%3Ccircle cx='74' cy='100' r='3'/%3E%3Ccircle cx='180' cy='124' r='2.5'/%3E%3Ccircle cx='250' cy='72' r='2'/%3E%3C/g%3E%3C/svg%3E");background-repeat:repeat-x;background-position:top;background-size:320px auto}
 .factio-treizieme-cantique::after{opacity:.12;background-image:repeating-radial-gradient(circle at 76% 12%,var(--c) 0 1px,transparent 1px 20px),repeating-radial-gradient(circle at 14% 92%,var(--c) 0 1px,transparent 1px 26px)}
 .factio-custodes::after{opacity:.1;background-image:repeating-conic-gradient(from 0deg at 50% -4%,var(--c) 0deg .8deg,transparent .8deg 8deg)}
@@ -279,8 +335,8 @@ nav.links a.logout:hover{color:var(--sang)}
 @keyframes ig-cantique{0%{transform:scale(1);box-shadow:0 0 0 0 var(--fx)}18%{transform:scale(1.03);box-shadow:0 0 48px 11px var(--fx)}36%{transform:scale(.99)}54%{transform:scale(1.018);box-shadow:0 0 40px 8px var(--fx)}72%{transform:scale(.997)}86%{transform:scale(1.006)}100%{transform:scale(1);box-shadow:0 0 26px -4px var(--fx)}}
 .hrow.just-unlocked[data-fac="custodes"]{animation:ig-custodes 1.15s cubic-bezier(.16,.84,.44,1)!important}
 @keyframes ig-custodes{0%{transform:scale(1);box-shadow:0 0 0 0 var(--fx);filter:brightness(1)}45%{transform:scale(1.028);box-shadow:0 0 62px 17px var(--fx);filter:brightness(1.28)}100%{transform:scale(1);box-shadow:0 0 30px -3px var(--fx);filter:brightness(1)}}
-.hrow.just-unlocked[data-fac="krieg"]{animation:ig-krieg 1s steps(2,end)!important}
-@keyframes ig-krieg{0%{transform:scale(1);box-shadow:0 0 0 0 var(--fx);filter:contrast(1)}8%{transform:scale(1.01);box-shadow:0 0 54px 11px var(--fx);filter:contrast(1.4)}16%{box-shadow:0 0 0 0 transparent;filter:contrast(1)}30%{box-shadow:0 0 40px 7px var(--fx)}100%{transform:scale(1);box-shadow:0 0 24px -4px var(--fx);filter:contrast(1)}}
+.hrow.just-unlocked[data-fac="krieg"]{animation:ig-krieg 1.1s cubic-bezier(.22,.9,.28,1)!important}
+@keyframes ig-krieg{0%{transform:translateY(-3px) scale(1.012);box-shadow:0 0 0 0 transparent;filter:brightness(1.15)}14%{transform:translateY(1px) scale(.99);box-shadow:0 14px 42px -6px var(--fx),0 0 40px 6px var(--fx);filter:brightness(1.32)}26%{transform:translateY(0) scale(1);filter:brightness(1.06)}42%{box-shadow:0 6px 30px -8px var(--fx),0 0 28px 2px var(--fx)}100%{box-shadow:0 0 22px -6px var(--fx);filter:brightness(1)}}
 .hcount{font-family:var(--display);font-size:.74rem;letter-spacing:.05em;color:var(--bone-dim)}
 .hcount .cval{color:var(--bone)}
 .tbtn{width:27px;height:27px;border:1px solid var(--line-strong);background:var(--ink);color:var(--bone);border-radius:2px;cursor:pointer;font-size:1.05rem;font-family:var(--display);display:inline-grid;place-items:center;line-height:1;padding:0}
@@ -379,6 +435,7 @@ footer .foot{font-family:var(--display); font-size:.66rem; letter-spacing:.24em;
       <a data-go="/factions">Factions</a>
       <a data-go="/actes">Actes</a>
       <a data-go="/batailles">Batailles</a>
+      <button id="adminToggle" class="admin-toggle" type="button" hidden></button>
       <a id="logoutBtn" class="logout">Déconnexion</a>
     </nav>
   </div>
@@ -498,22 +555,49 @@ async function loadMe(){
     const {data:rows}=await sb.from('hero_progress').select('faction,data').eq('user_id',user.id);
     (rows||[]).forEach(function(r){ ME.progress[r.faction]=r.data||{}; });
     if(ME.role==='admin'){
-      const {data:all}=await sb.from('hero_progress').select('faction,data');
-      (all||[]).forEach(function(r){ if((ME.factions||[]).indexOf(r.faction)<0) ALLPROG[r.faction]=r.data||{}; });
+      const {data:all}=await sb.from('hero_progress').select('user_id,faction,data');
+      (all||[]).forEach(function(r){
+        if(r.user_id===user.id) return;                     // ignorer mes propres lignes (bac à sable)
+        if((ME.factions||[]).indexOf(r.faction)>=0) return; // pas mes factions
+        ALLPROG[r.faction]=r.data||{};
+      });
     }
   }catch(e){}
 }
+let ADMIN_VIEW='sandbox';   // 'sandbox' : édition test · 'supervise' : progression réelle des joueurs (lecture seule)
 function heroMode(id){
-  if((ME.factions||[]).indexOf(id)>=0) return 'edit';
-  if(ME.role==='admin') return 'view';
+  const own=(ME.factions||[]).indexOf(id)>=0;
+  if(ME.role==='admin'){
+    if(own) return 'edit';                            // mes propres factions : toujours éditables
+    return ADMIN_VIEW==='sandbox' ? 'edit' : 'view';  // les autres : selon le toggle
+  }
+  if(own) return 'edit';
   return 'static';
+}
+function renderAdminToggle(){
+  const b=document.getElementById('adminToggle'); if(!b) return;
+  if(ME.role!=='admin'){ b.hidden=true; return; }
+  b.hidden=false;
+  const sandbox=ADMIN_VIEW==='sandbox';
+  b.textContent = sandbox ? 'Bac à sable' : 'Supervision';
+  b.title = sandbox
+    ? 'Mode test — édite les effets sans toucher la progression réelle. Cliquer pour superviser la progression réelle des joueurs.'
+    : 'Supervision — progression réelle des joueurs, en lecture seule. Cliquer pour repasser en bac à sable.';
+  b.setAttribute('aria-pressed', sandbox ? 'true' : 'false');
+  b.classList.toggle('is-supervise', !sandbox);
+}
+function toggleAdminView(){
+  ADMIN_VIEW = ADMIN_VIEW==='sandbox' ? 'supervise' : 'sandbox';
+  renderAdminToggle();
+  if(CUR && CUR.indexOf('/factions/')===0) go(CUR);   // re-render la faction affichée
 }
 async function onSession(session){
   if(session){
     try{ await withTimeout(loadMe(), 12000, 'loadme-timeout'); }catch(e){}
+    renderAdminToggle();
     showApp(true); go(CUR);
   }
-  else { ME={role:null,factions:[],progress:{}}; showApp(false); }
+  else { ME={role:null,factions:[],progress:{}}; renderAdminToggle(); showApp(false); }
 }
 function canTrack(id){ return ME.role==='admin' || (ME.factions||[]).indexOf(id)>=0; }
 async function saveProgress(fac){
@@ -579,6 +663,7 @@ function initAuth(){
   const b=document.getElementById('g-login'); if(b) b.addEventListener('click',doLogin);
   const p=document.getElementById('g-pass'); if(p) p.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
   const o=document.getElementById('logoutBtn'); if(o) o.addEventListener('click',e=>{e.preventDefault();doLogout();});
+  const at=document.getElementById('adminToggle'); if(at) at.addEventListener('click',e=>{e.preventDefault();toggleAdminView();});
 }
 /* ------------------------------------------------------------
    CORRECTIF — resynchro de session après bfcache / retour navigateur
@@ -856,6 +941,7 @@ function renderFactio(id){
   d.style.setProperty('--c',f.c);
   const mode=heroMode(id);
   d.innerHTML=`<a class="back" data-go="/factions">← Tous les dossiers</a>
+    <div class="factio-fx" aria-hidden="true"></div>
     <span class="eyebrow" style="color:${f.c}">${f.tag}</span>
     <h2>${f.name}<span class="accentbar"></span></h2>
     <div class="meta"><span class="chip">${f.real}</span></div>
@@ -987,7 +1073,12 @@ function heroTableHTML(id, mode){
         <div class="hregle">${cr.regle}</div></div>`;
     }
   }
-  const banner = mode==='view' ? `<div class="gmview">Vue maître de campagne — progression du joueur, en lecture seule</div>` : '';
+  const adminOther = ME.role==='admin' && (ME.factions||[]).indexOf(id)<0;
+  const banner = mode==='view'
+    ? `<div class="gmview">Vue maître de campagne — progression réelle du joueur · lecture seule</div>`
+    : (adminOther && mode==='edit'
+        ? `<div class="gmview">Bac à sable — test des effets · sans impact sur la progression réelle du joueur</div>`
+        : '');
   const recap = track ? `<div id="recap-${id}" class="recap"></div>` : '';
   return `<div class="subhead">Voie du héros</div>
     ${banner}${recap}
