@@ -59,6 +59,32 @@ body::before{content:""; position:fixed; inset:0; pointer-events:none; z-index:1
 body::after{content:""; position:fixed; inset:0; pointer-events:none; z-index:1; background:radial-gradient(120% 90% at 50% 18%, transparent 40%, rgba(0,0,0,.5) 100%)}
 .wrap{max-width:var(--maxw); margin:0 auto; padding:0 22px; position:relative; z-index:2}
 
+/* ============================================================
+   IMAGE DE FOND PAR FACTION
+   Couche fixe sous tout le contenu, visible seulement sur les pages
+   de faction (body[data-theme]). Aucune animation, aucun parallaxe.
+   Le voile reprend --ink du thème : régler --voile pour doser
+   l'image (plus haut = image plus discrète, texte plus lisible).
+   Pages communes : pas d'image, seulement le fond du thème.
+   ============================================================ */
+.fond{position:fixed; inset:0; z-index:0; pointer-events:none; background-color:var(--ink); background-position:center; background-size:cover; background-repeat:no-repeat;
+  --voile-texte:88%;   /* sous la colonne de lecture : garantit la lisibilité des petits intitulés colorés */
+  --voile-marge:55%;   /* hors colonne (côté droit, grands écrans) : l'image reste bien visible */
+}
+/* voile calé sur la colonne de contenu (.wrap de 1080 px centrée, texte aligné à gauche) */
+.fond::after{content:""; position:absolute; inset:0; background:linear-gradient(90deg,
+  color-mix(in srgb,var(--ink) var(--voile-marge),transparent) 0,
+  color-mix(in srgb,var(--ink) var(--voile-texte),transparent) calc(50% - 560px),
+  color-mix(in srgb,var(--ink) var(--voile-texte),transparent) calc(50% + 260px),
+  color-mix(in srgb,var(--ink) var(--voile-marge),transparent) calc(50% + 540px))}
+@media (max-width:760px){ .fond::after{background:color-mix(in srgb,var(--ink) var(--voile-texte),transparent)} }
+body[data-theme="necrons"] .fond{background-image:url("fond-necrons.webp")}
+body[data-theme="red-choir"] .fond{background-image:url("fond-red-choir.webp")}
+body[data-theme="treizieme-cantique"] .fond{background-image:url("fond-treizieme-cantique.webp")}
+/* à venir :
+body[data-theme="custodes"] .fond{background-image:url("fond-custodes.webp")}
+body[data-theme="krieg"] .fond{background-image:url("fond-krieg.webp")} */
+
 h1,h2,h3{font-family:var(--display); font-weight:400; letter-spacing:.04em; color:var(--bone); line-height:1.14; margin:0}
 .eyebrow{font-family:var(--display); font-size:.74rem; letter-spacing:.32em; text-transform:uppercase; color:var(--accent); display:inline-block}
 a{color:inherit}
