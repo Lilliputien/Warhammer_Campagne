@@ -104,17 +104,15 @@ async function saveProgress(fac){
 }
 function paintEntry(row){
   const fac=row.dataset.fac,key=row.dataset.key,seuil=parseInt(row.dataset.seuil,10)||1;
-  const c=(ME.progress[fac]&&ME.progress[fac][key])||0, p=Math.min(c/seuil,1);
-  row.style.setProperty('--p',p); row.classList.toggle('unlocked',c>=seuil);
+  const c=(ME.progress[fac]&&ME.progress[fac][key])||0;
+  row.classList.toggle('unlocked',c>=seuil);
   const v=row.querySelector('.cval'); if(v)v.textContent=c;
 }
 function updateCrown(fac){
   const crown=document.querySelector('.hrow.crown[data-fac="'+fac+'"]'); if(!crown) return;
   const rows=[].slice.call(document.querySelectorAll('.hrow.track[data-kind="v"][data-fac="'+fac+'"]'));
   const n=rows.filter(function(r){return r.classList.contains('unlocked');}).length, on=n>=3;
-  const was=crown.classList.contains('unlocked');
   crown.classList.toggle('unlocked',on); crown.classList.toggle('locked',!on);
-  if(on && !was) igniteRow(crown);
   const st=crown.querySelector('.crownstate'); if(st)st.textContent = on?'✦ Couronnement débloqué — 3 titres obtenus':('Verrouillé — '+Math.min(n,3)+'/3 titres requis');
 }
 function buildRecap(fac, prog){
@@ -133,11 +131,6 @@ function buildRecap(fac, prog){
   f+='</div></div>';
   host.innerHTML=f;
 }
-function igniteRow(row){
-  if(!row) return;
-  row.classList.remove('just-unlocked'); void row.offsetWidth; row.classList.add('just-unlocked');
-  setTimeout(function(){ row.classList.remove('just-unlocked'); }, 1150);
-}
 function adjustEntry(row,delta){
   const fac=row.dataset.fac,key=row.dataset.key,seuil=parseInt(row.dataset.seuil,10)||1;
   ME.progress[fac]=ME.progress[fac]||{};
@@ -145,7 +138,6 @@ function adjustEntry(row,delta){
   let c=old+delta; if(c<0)c=0;
   ME.progress[fac][key]=c;
   paintEntry(row);
-  if(old<seuil && c>=seuil) igniteRow(row);
   updateCrown(fac); buildRecap(fac); saveProgress(fac);
 }
 function initAuth(){
@@ -182,27 +174,27 @@ document.addEventListener('visibilitychange', function(){
 });
 
 const FACTIONS = [
-  { id:"necrons", name:"Les Éveillés", real:"Necrons — Dynastie inconnue", tag:"Xenos · Métal endormi", c:"#54CBA6",
+  { id:"necrons", name:"Les Éveillés", real:"Necrons — Dynastie inconnue", tag:"Xenos · Métal endormi", c:"#4FCF8A",
     lore:["Le Nœud n'a pas réveillé la dynastie : il l'a appelée. Sous la poussière de Cytherea, des légions de métal redressent la tête après des éons de stase, mues par un protocole que même leurs seigneurs-liches ne reconnaissent pas. Ils ne défendent pas un territoire. Ils répondent à une convocation.",
       "Là où ils passent, la lumière prend une teinte verte et froide, et les machines impériales se taisent comme par déférence. Les Éveillés ne haïssent pas les vivants — ils les classent."],
     leader:{name:"SZARETH", title:"le Premier Réveillé · Phaeron sans dynastie", bio:"Premier à s'être dressé quand la note a retenti, Szareth gouverne une légion qui n'apparaît dans aucune archive. Il avance vers le Nœud avec la certitude tranquille de celui qui se souvient d'une chose que la galaxie a oubliée.", traits:["Protocole inconnu","Indéfait depuis 60 M d'années"]},
     role:"Gardiens involontaires du Nœud : la faction qui en sait le plus, et qui en dira le moins." },
-  { id:"red-choir", name:"Le Chœur Rouge", real:"World Eaters — Le Chœur Rouge", tag:"Chaos · Khorne", c:"#C03A2B",
+  { id:"red-choir", name:"Le Chœur Rouge", real:"World Eaters — Le Chœur Rouge", tag:"Chaos · Khorne", c:"#E2423E",
     lore:["Ils sont arrivés en silence — et c'est ce silence qui terrifie. Le Chœur Rouge a fait vœu de mutisme rituel jusqu'à ce que la note du Nœud se taise, et leurs gorges scellées rendent leur furie plus pure, plus totale. Pas de cri de guerre. Seulement le travail des chaînes et des haches.",
       "Khorne ne demande pas pourquoi le sang coule, seulement qu'il coule. Mais quelque chose, à Cytherea, a transformé la soif du Chœur en pèlerinage."],
     leader:{name:"VORTAK", title:"Gorge-Close · Maître du Chœur", bio:"Il n'a pas prononcé un mot depuis trois campagnes. Ses ordres passent par le geste, la lame, le regard. On dit que le jour où Vortak rompra le silence, ce sera pour hurler le nom de ce qui dort sous Cytherea.", traits:["Vœu de silence","Jamais vaincu en duel"]},
     role:"La marée qui ne négocie pas. Leur progression dicte le rythme brutal de la campagne." },
-  { id:"treizieme-cantique", name:"Le Treizième Cantique", real:"Emperor's Children — Le Treizième Cantique", tag:"Chaos · Slaanesh", c:"#B057D6",
+  { id:"treizieme-cantique", name:"Le Treizième Cantique", real:"Emperor's Children — Le Treizième Cantique", tag:"Chaos · Slaanesh", c:"#B97FDD",
     lore:["Si le Chœur Rouge s'est tu, le Treizième Cantique est venu pour écouter. La résonance du Nœud est, pour eux, la plus parfaite des sensations jamais offertes à la galaxie. Ils ne veulent pas la détruire. Ils veulent la posséder, la prolonger, s'y noyer.",
       "Leurs guerres sont des compositions. Chaque assaut module la douleur et l'extase comme un mouvement de symphonie, et leurs armes soniques font éclater la chair en accords."],
     leader:{name:"SIGRIM LE FOURBE", title:"l'Archisonneur · Maître de chapelle", bio:"Première oreille du Cantique, Sigrim le Fourbe entend dans la note du Nœud une œuvre inachevée qu'il compte terminer. Sa arme sonique, dit-on, a déjà fait s'agenouiller des compagnies entières d'extase et d'effroi mêlés.", traits:["Oreille parfaite","Arme sonique unique"]},
     role:"Les seuls à comprendre le Nœud comme une œuvre. Cela les rend imprévisibles — et patients." },
-  { id:"custodes", name:"La Garde Cytheréenne", real:"Adeptus Custodes", tag:"Imperium · Talons d'or", c:"#E6C871",
+  { id:"custodes", name:"La Garde Cytheréenne", real:"Adeptus Custodes", tag:"Imperium · Talons d'or", c:"#DDB64F",
     lore:["Que des Custodes aient quitté Terra pour un système oublié dit assez la gravité de ce qui s'éveille. Ils ne sont qu'une poignée — mais chacun vaut une compagnie, et chacun sait précisément ce que le Nœud menace de défaire.",
       "Ils ne partagent rien, n'expliquent rien, ne reculent pas. Là où l'Astra Militarum tient des lignes, les Custodes tiennent des principes."],
     leader:{name:"AELRIC", title:"Capitaine-Bouclier · Porteur du Verdict", bio:"Envoyé de Terra avec un ordre scellé que nul autre n'a lu, Aelric agit comme s'il connaissait déjà la fin de cette campagne. Sa lame, le Verdict, n'a jamais tranché deux fois la même cause.", traits:["Serment de Terra","Connaît le secret du Nœud"]},
     role:"L'épée de l'Imperium et son secret. Ils savent quelque chose que Krieg ignore." },
-  { id:"krieg", name:"La 88e de Krieg", real:"Death Korps of Krieg", tag:"Imperium · Astra Militarum", c:"#A79A66",
+  { id:"krieg", name:"La 88e de Krieg", real:"Death Korps of Krieg", tag:"Imperium · Astra Militarum", c:"#A9AE72",
     lore:["On ne les a pas envoyés vaincre. On les a envoyés durer. La 88e Compagnie de siège creuse Cytherea comme elle creuse toujours : en chiffrant le terrain en mètres et en morts, en transformant chaque crête en tranchée et chaque tranchée en cercueil patient.",
       "Ils ne questionnent pas le Nœud, ni les Talons d'or qui marchent à leurs côtés sans leur parler. Le devoir n'a pas besoin de comprendre."],
     leader:{name:"MARÉCHAL DE SIÈGE KESSLER", title:"Commandant de la 88e", bio:"On ignore son visage, comme celui de tous les siens. Kessler tient un registre où chaque mètre de Cytherea est inscrit au prix exact de vies qu'il a coûté. Il compte. Il avance. Il ne recule pas.", traits:["Ne recule jamais","Compte chaque mètre"]},
@@ -426,7 +418,7 @@ const OPEN='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wi
 
 function renderFactions(){
   const g=document.getElementById('factionGrid'); g.innerHTML='';
-  FACTIONS.forEach(f=>g.appendChild(el(`<a class="card" data-go="/factions/${f.id}" style="--c:${f.c}">
+  FACTIONS.forEach(f=>g.appendChild(el(`<a class="card" data-go="/factions/${f.id}" data-theme="${f.id}">
     <span class="tag">${f.tag}</span><h3>${f.name}</h3><div class="real">${f.real}</div>
     <p>${f.lore[0].slice(0,120)}…</p><div class="more">Ouvrir le dossier →</div></a>`)));
 }
@@ -434,18 +426,16 @@ function renderFactio(id){
   const f=FACTIONS.find(x=>x.id===id), d=document.getElementById('factioDetail');
   if(!f){d.className='sec factio';d.innerHTML='<a class="back" data-go="/factions">← Tous les dossiers</a><p>Dossier introuvable.</p>';return;}
   d.className='sec factio factio-'+id;
-  d.style.setProperty('--c',f.c);
   const mode=heroMode(id);
   d.innerHTML=`<a class="back" data-go="/factions">← Tous les dossiers</a>
-    <div class="factio-fx" aria-hidden="true"></div>
-    <span class="eyebrow" style="color:${f.c}">${f.tag}</span>
+    <span class="eyebrow">${f.tag}</span>
     <h2>${f.name}<span class="accentbar"></span></h2>
     <div class="meta"><span class="chip">${f.real}</span></div>
     <div class="subhead">Lore</div>
     <div class="lore">${f.lore.map(p=>`<p>${p}</p>`).join('')}</div>
     <div class="subhead">Dirigeant</div>
     <div class="leader">
-      <div class="portrait"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="${f.c}" stroke-width="1"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7" opacity=".6"/><circle cx="12" cy="12" r="10.5" opacity=".3"/></svg></div>
+      <div class="portrait"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7" opacity=".6"/><circle cx="12" cy="12" r="10.5" opacity=".3"/></svg></div>
       <div><div class="lname">${f.leader.name}</div><div class="ltitle">${f.leader.title}</div>
         <p class="lbio">${f.leader.bio}</p>
         <div class="traits">${f.leader.traits.map(t=>`<span>${t}</span>`).join('')}</div></div>
@@ -513,8 +503,8 @@ function renderBattles(){
   const s=document.getElementById('standings'); s.innerHTML='';
   const max=Math.max(1,...Object.values(SCORES));
   FACTIONS.forEach(f=>{const v=SCORES[f.name]||0,w=Math.round(v/max*100);
-    s.appendChild(el(`<div><div class="standrow"><div class="nm"><span class="dot" style="background:${f.c}"></span>${f.name}</div><span class="v">${v} V</span></div>
-      <div class="bar-bg"><i style="width:${Math.max(4,w)}%;background:${f.c}"></i></div></div>`));});
+    s.appendChild(el(`<div data-theme="${f.id}"><div class="standrow"><div class="nm"><span class="dot"></span>${f.name}</div><span class="v">${v} V</span></div>
+      <div class="bar-bg"><i style="width:${Math.max(4,w)}%"></i></div></div>`));});
 }
 function renderJournal(){
   const j=document.getElementById('journalBody'); j.innerHTML='';
@@ -536,9 +526,9 @@ function heroTableHTML(id, mode){
         <div class="hregle">${isM?r.effet:r.regle}</div></div>`;
     }
     const key=kind+i, seuil=parseInt(r.seuil,10)||1, count=prog[key]||0;
-    const unlocked=count>=seuil, p=Math.min(count/seuil,1);
+    const unlocked=count>=seuil;
     const ctrl = editable ? `<button class="tbtn minus" aria-label="Retirer">−</button><button class="tbtn plus" aria-label="Ajouter">+</button>` : '';
-    return `<div class="hrow ${isM?'malusrow':''} track ${unlocked?'unlocked':''}" data-fac="${id}" data-kind="${kind}" data-key="${key}" data-seuil="${seuil}" style="--p:${p}">
+    return `<div class="hrow ${isM?'malusrow':''} track ${unlocked?'unlocked':''}" data-fac="${id}" data-kind="${kind}" data-key="${key}" data-seuil="${seuil}">
       <div class="hrow-h">
         <span class="htitre">${r.titre}</span>
         <span class="hstate">
@@ -627,6 +617,8 @@ function go(route){
   if(p[0]==='factions'&&p[1]){renderFactio(p[1]);show('v-factio');setActive('/factions');}
   else if(p[0]==='actes'&&p[1]){renderActe(p[1]);show('v-acte');setActive('/actes');}
   else{const base='/'+(p[0]||'');show(VIEWS[base]||'v-accueil');setActive(p[0]?base:'/');}
+  const fac = (p[0]==='factions' && p[1] && FACTIONS.some(f=>f.id===p[1])) ? p[1] : 'hub';
+  document.body.setAttribute('data-theme', fac);   // un thème de couleur par page (voir style.css)
   CUR=route;
   try{window.scrollTo(0,0);}catch(e){}
 }
