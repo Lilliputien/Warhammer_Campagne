@@ -256,6 +256,65 @@ nav.links a.logout:hover{color:var(--danger)}
 }
 
 /* ============================================================
+   RENVOIS (noms devenus liens) ET CIBLE D'ANCRE
+   Un renvoi vers un personnage porte le data-theme de sa faction :
+   son soulignement prend la couleur de la faction.
+   ============================================================ */
+a.xref{color:inherit; text-decoration:underline; text-decoration-color:color-mix(in srgb,var(--accent) 65%,transparent); text-decoration-thickness:1px; text-underline-offset:.2em; cursor:pointer}
+a.xref:hover{color:var(--accent-bright); text-decoration-color:var(--accent-bright)}
+a.xref:focus-visible{outline:2px solid var(--accent-bright); outline-offset:2px}
+/* l'élément visé par un renvoi reste signalé tant qu'on est sur la page (état fixe, pas d'animation) */
+.leader,.corps,.sys-block{scroll-margin-top:84px}
+.leader.is-target{border-color:var(--line-strong); border-left-color:var(--accent-bright)}
+
+/* ============================================================
+   PAGE SYSTÈME
+   ============================================================ */
+.fiche{display:grid; grid-template-columns:repeat(auto-fill,minmax(230px,1fr)); border-top:1px solid var(--line); border-left:1px solid var(--line); margin:22px 0 0; max-width:1000px}
+.fiche > div{background:var(--ink2); padding:12px 14px; border-right:1px solid var(--line); border-bottom:1px solid var(--line)}
+.fiche dt{font-family:var(--display); font-size:.55rem; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); margin:0 0 4px}
+.fiche dd{margin:0; font-size:.95rem; line-height:1.45; color:var(--bone)}
+
+.sys-index{list-style:none; margin:18px 0 0; padding:0; display:flex; flex-wrap:wrap; gap:8px; max-width:1000px}
+.sys-index a{display:inline-flex; align-items:baseline; gap:8px; cursor:pointer; text-decoration:none; font-family:var(--display); font-size:.8rem; letter-spacing:.03em; color:var(--bone-dim); border:1px solid var(--line); padding:6px 11px; border-radius:2px}
+.sys-index a:hover{color:var(--bone); border-color:var(--line-strong)}
+.sys-index a:focus-visible{outline:2px solid var(--accent-bright); outline-offset:2px}
+.sys-index .n{font-size:.62rem; letter-spacing:.1em; color:var(--accent)}
+
+.corps{border:1px solid var(--line); border-left:3px solid var(--accent); background:var(--panel); padding:20px 22px; margin-top:16px; max-width:880px}
+.corps-h{display:flex; align-items:baseline; gap:14px; flex-wrap:wrap}
+.corps-num{font-family:var(--display); font-size:1.15rem; letter-spacing:.06em; color:var(--accent); min-width:2.4em}
+.corps h3{font-size:1.65rem}
+.corps h4{font-family:var(--display); font-weight:400; font-size:1.25rem; letter-spacing:.03em; line-height:1.2; color:var(--bone); margin:0}
+.corps-genre{font-family:var(--display); font-size:.56rem; letter-spacing:.18em; text-transform:uppercase; color:var(--accent)}
+.corps-type{font-style:italic; color:var(--bone-dim); margin-top:3px}
+.corps-meta{display:flex; flex-wrap:wrap; gap:8px 26px; margin:12px 0 0}
+.corps-meta dt{font-family:var(--display); font-size:.52rem; letter-spacing:.16em; text-transform:uppercase; color:var(--bone-dim)}
+.corps-meta dd{margin:2px 0 0; font-size:.9rem; color:var(--bone-soft)}
+.sys-lore{max-width:700px; margin-top:12px}
+.sys-lore p{margin:0 0 12px}
+.sys-lore p:last-child{margin-bottom:0}
+.sys-points{margin:0 0 12px; padding-left:22px}
+.sys-points li{margin:6px 0}
+
+.corps-enfants{margin-top:18px; padding-left:16px; border-left:1px solid var(--line-strong)}
+.corps.enfant{background:var(--ink2); border-left-color:var(--accent-deep); margin-top:12px; padding:16px 18px}
+.corps.enfant .corps.enfant{background:var(--panel)}
+.corps.is-target{border-color:var(--line-strong); border-left-color:var(--accent-bright)}
+
+.sys-block{margin-top:10px}
+.sys-sec-head{margin-top:58px}
+.sys-table{max-width:1000px; margin-top:12px}
+.sys-table table{min-width:600px}
+.sys-table td{font-size:.95rem}
+.sys-table td:first-child{color:var(--bone); font-family:var(--display); letter-spacing:.02em}
+@media (max-width:620px){
+  .corps{padding:16px}
+  .corps-enfants{padding-left:10px}
+  .corps.enfant{padding:14px}
+}
+
+/* ============================================================
    ACTES
    ============================================================ */
 .acts{display:grid; gap:16px}

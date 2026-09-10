@@ -41,7 +41,7 @@ async function doLogin(){
 }
 async function doLogout(){ if(sb) await sb.auth.signOut(); }
 
-let ME={role:null,factions:[],progress:{}}; let ALLPROG={}; let CUR='/';
+let ME={role:null,factions:[],progress:{}}; let ALLPROG={}; let CUR=routeFromHash();
 async function loadMe(){
   ME={role:null,factions:[],progress:{}}; ALLPROG={};
   try{
@@ -85,13 +85,13 @@ function renderAdminToggle(){
 function toggleAdminView(){
   ADMIN_VIEW = ADMIN_VIEW==='sandbox' ? 'supervise' : 'sandbox';
   renderAdminToggle();
-  if(CUR && CUR.indexOf('/factions/')===0) go(CUR);   // re-render la faction affichée
+  if(CUR && CUR.indexOf('/factions/')===0) go(CUR,{keepScroll:true});   // re-render la faction affichée
 }
 async function onSession(session){
   if(session){
     try{ await withTimeout(loadMe(), 12000, 'loadme-timeout'); }catch(e){}
     renderAdminToggle();
-    showApp(true); go(CUR);
+    showApp(true); go(CUR,{keepScroll:true});
   }
   else { ME={role:null,factions:[],progress:{}}; renderAdminToggle(); showApp(false); }
 }
@@ -434,7 +434,7 @@ function renderFactio(id){
     <div class="subhead">Lore</div>
     <div class="lore">${f.lore.map(p=>`<p>${p}</p>`).join('')}</div>
     <div class="subhead">Dirigeant</div>
-    <div class="leader">
+    <div class="leader" id="dirigeant">
       <div class="portrait"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="7" opacity=".6"/><circle cx="12" cy="12" r="10.5" opacity=".3"/></svg></div>
       <div><div class="lname">${f.leader.name}</div><div class="ltitle">${f.leader.title}</div>
         <p class="lbio">${f.leader.bio}</p>
@@ -608,25 +608,188 @@ function destineeHTML(id){
       <div class="branch ruin"><h4>Voie de la Ruine · Fardeaux</h4><div class="path">${d.ruin.map(n=>node(n,'ruin')).join('')}</div></div>
     </div>`;
 }
-const VIEWS={'/':'v-accueil','/factions':'v-factions','/actes':'v-actes','/batailles':'v-batailles'};
+const VIEWS={'/':'v-accueil','/systeme':'v-systeme','/factions':'v-factions','/actes':'v-actes','/batailles':'v-batailles'};
 function show(id){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id===id));}
 function setActive(r){document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('active',a.getAttribute('data-go')===r));}
-function go(route){
-  if(!route)route='/';
+
+/* ------------------------------------------------------------
+   ROUTEUR
+   La route est écrite dans l'adresse (#/systeme/naogeth) :
+   - le bouton retour du navigateur ramène à la page précédente,
+     à la position de lecture où on l'avait quittée ;
+   - une adresse peut être partagée ou ouverte dans un nouvel onglet.
+   Formes : /  /systeme  /systeme/<id>  /factions  /factions/<id>
+            /factions/<id>/dirigeant  /actes  /actes/<id>  /batailles
+   ------------------------------------------------------------ */
+function routeFromHash(){
+  const h=location.hash||'';
+  return h.indexOf('#/')===0 ? decodeURIComponent(h.slice(1)) : '/';
+}
+function go(route, opts){
+  opts=opts||{};
+  if(!route) route='/';
   const p=route.split('/').filter(Boolean);
-  if(p[0]==='factions'&&p[1]){renderFactio(p[1]);show('v-factio');setActive('/factions');}
-  else if(p[0]==='actes'&&p[1]){renderActe(p[1]);show('v-acte');setActive('/actes');}
-  else{const base='/'+(p[0]||'');show(VIEWS[base]||'v-accueil');setActive(p[0]?base:'/');}
+  let viewId, active, anchor=null;
+  if(p[0]==='factions'&&p[1]){ renderFactio(p[1]); viewId='v-factio'; active='/factions'; if(p[2]) anchor=p[2]; }
+  else if(p[0]==='actes'&&p[1]){ renderActe(p[1]); viewId='v-acte'; active='/actes'; }
+  else if(p[0]==='systeme'){ viewId='v-systeme'; active='/systeme'; if(p[1]) anchor='ancre-'+p[1]; }
+  else { const base='/'+(p[0]||''); viewId=VIEWS[base]||'v-accueil'; active=VIEWS[base]?base:'/'; }
+  show(viewId); setActive(active);
   const fac = (p[0]==='factions' && p[1] && FACTIONS.some(f=>f.id===p[1])) ? p[1] : 'hub';
   document.body.setAttribute('data-theme', fac);   // un thème de couleur par page (voir style.css)
+  linkify(document.getElementById(viewId), route);
   CUR=route;
-  try{window.scrollTo(0,0);}catch(e){}
+  try{ history[opts.push?'pushState':'replaceState']({route:route,y:0}, '', '#'+route); }catch(e){}
+  document.querySelectorAll('.is-target').forEach(n=>n.classList.remove('is-target'));
+  const target = anchor ? document.getElementById(anchor) : null;
+  if(target) target.classList.add('is-target');
+  // sauts instantanés : html a scroll-behavior:smooth, qui animerait des milliers de pixels
+  const jump=y=>{ try{ window.scrollTo({top:y,left:0,behavior:'instant'}); }catch(e){ window.scrollTo(0,y); } };
+  if(typeof opts.y==='number') jump(opts.y);
+  else if(opts.keepScroll) {}
+  else if(target){ const bar=document.querySelector('header.bar'); jump(target.getBoundingClientRect().top + window.scrollY - (bar?bar.offsetHeight:70) - 14); }
+  else jump(0);
+}
+/* navigation déclenchée par un clic : mémorise la position de lecture actuelle */
+function navigate(route){
+  if(route===CUR){ go(route); return; }
+  try{ history.replaceState({route:CUR,y:window.scrollY}, '', '#'+CUR); }catch(e){}
+  go(route,{push:true});
+}
+window.addEventListener('popstate', function(e){
+  const st=e.state||{};
+  go(st.route||routeFromHash(), {y: typeof st.y==='number' ? st.y : 0});
+});
+
+/* ------------------------------------------------------------
+   RENVOIS AUTOMATIQUES
+   Les noms de personnages, planètes, lunes et lieux importants
+   deviennent des liens vers leur fiche. Les termes viennent de
+   systeme.js (SYSTEME[].termes, PERSONNAGES).
+   XREF_MODE : 'paragraphe' = première mention dans chaque paragraphe
+               'toutes'     = chaque mention
+   Pas de lien vers la fiche où l'on se trouve déjà.
+   ------------------------------------------------------------ */
+const XREF_MODE='paragraphe';
+const XREF_BLOCKS='p,li,td,dd,.hregle,.hfait,.rcond,.rgain,.bmeta';
+const XREF_SKIP='a,button,h1,h2,h3,h4,.hero,.eyebrow,.chip,.subhead,.hlab,.htitre,.note,.gmview,.recap-h,.no-xref';
+let XREF=null, XREF_RE=null;
+function buildXref(){
+  const list=[];
+  const add=(termes,route,indice,theme)=>(termes||[]).forEach(t=>list.push({t:t,route:route,indice:indice,theme:theme||null}));
+  FACTIONS.forEach(f=>{
+    const termes=PERSONNAGES[f.id]||[];
+    if(termes.length) add(termes,'/factions/'+f.id+'/dirigeant', termes[0]+', '+f.leader.title, f.id);
+  });
+  const walk=e=>{ add(e.termes,'/systeme/'+e.id, e.nom.replace(/^(La |Le |Les |L')/,'')+(e.type?', '+e.type.charAt(0).toLowerCase()+e.type.slice(1):'')); (e.enfants||[]).forEach(walk); };
+  SYSTEME.corps.forEach(walk);
+  SYSTEME.sousSecteur.systemes.forEach(walk);
+  add(SYSTEME.sousSecteur.termes,'/systeme/cythonis','Le sous-secteur Cythonis');
+  list.sort((a,b)=>b.t.length-a.t.length);
+  XREF={}; list.forEach(x=>{ if(!XREF[x.t]) XREF[x.t]=x; });
+  const esc=t=>t.replace(/[.*+?^${}()|[\]\\]/g,'\\$&').replace(/'/g,"['’]");
+  const L="A-Za-z0-9_À-ÖØ-öø-ÿŒœ";
+  XREF_RE=new RegExp('(^|[^'+L+'-])('+list.map(x=>esc(x.t)).join('|')+')(?!['+L+'-])','g');   // pas de lien dans « Cythonis-VII »
+}
+function pageOf(route){ return route.split('/').filter(Boolean).slice(0,2).join('/'); }
+function linkify(root, route){
+  if(!root || typeof SYSTEME==='undefined') return;
+  if(XREF_RE===null){ try{ buildXref(); }catch(e){ XREF_RE=false; } }
+  if(!XREF_RE) return;
+  const page=pageOf(route||'/');
+  const walker=document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+  const nodes=[]; let n; while((n=walker.nextNode())) nodes.push(n);
+  const used=new Map();
+  nodes.forEach(node=>{
+    const par=node.parentElement; if(!par || par.closest(XREF_SKIP)) return;
+    const blk=par.closest(XREF_BLOCKS); if(!blk || !root.contains(blk)) return;
+    const txt=node.nodeValue;
+    XREF_RE.lastIndex=0; if(!XREF_RE.test(txt)) return;
+    let set=used.get(blk);
+    if(!set){ set=new Set([].map.call(blk.querySelectorAll('a.xref'),a=>a.getAttribute('data-go'))); used.set(blk,set); }
+    const selfEl=par.closest('[data-xref-self]'), self=selfEl?selfEl.getAttribute('data-xref-self'):null;
+    const frag=document.createDocumentFragment(); let last=0, m, changed=false;
+    XREF_RE.lastIndex=0;
+    while((m=XREF_RE.exec(txt))){
+      const term=m[2], start=m.index+m[1].length, x=XREF[term.replace(/’/g,"'")];
+      if(!x || x.route===self) continue;
+      if(x.route.indexOf('/factions/')===0 && pageOf(x.route)===page) continue;   // personnage sur sa propre page
+      if(XREF_MODE!=='toutes' && set.has(x.route)) continue;
+      set.add(x.route);
+      frag.appendChild(document.createTextNode(txt.slice(last,start)));
+      const a=document.createElement('a');
+      a.className='xref'; a.href='#'+x.route; a.setAttribute('data-go',x.route); a.title=x.indice;
+      if(x.theme) a.setAttribute('data-theme',x.theme);
+      a.textContent=term; frag.appendChild(a);
+      last=start+term.length; changed=true;
+    }
+    if(!changed) return;
+    frag.appendChild(document.createTextNode(txt.slice(last)));
+    par.replaceChild(frag,node);
+  });
+}
+
+/* ------------------------------------------------------------
+   PAGE SYSTÈME (rendue une fois, depuis systeme.js)
+   ------------------------------------------------------------ */
+function sysEntry(e, depth){
+  const route='/systeme/'+e.id;
+  const meta=[];
+  if(e.pop) meta.push(`<div><dt>Population</dt><dd>${e.pop}</dd></div>`);
+  if(e.classe) meta.push(`<div><dt>${e.genre==='Système'?'Statut':'Classification'}</dt><dd><em>${e.classe}</em></dd></div>`);
+  if(e.ref) meta.push(`<div><dt>Référence</dt><dd>${e.ref}</dd></div>`);
+  const head = depth===0
+    ? `<div class="corps-h">${e.num?`<span class="corps-num">${e.num}</span>`:''}<h3>${e.nom}</h3></div>`
+    : `<div class="corps-h"><span class="corps-genre">${e.genre}${e.num?' '+e.num:''}</span><h4>${e.nom}</h4></div>`;
+  return `<article class="corps${depth?' enfant':''}" id="ancre-${e.id}" data-xref-self="${route}">
+    ${head}
+    ${e.type?`<div class="corps-type">${e.type}</div>`:''}
+    ${meta.length?`<dl class="corps-meta">${meta.join('')}</dl>`:''}
+    ${(e.lore||[]).length?`<div class="sys-lore">${e.lore.map(t=>`<p>${t}</p>`).join('')}</div>`:''}
+    ${(e.enfants||[]).length?`<div class="corps-enfants">${e.enfants.map(c=>sysEntry(c,depth+1)).join('')}</div>`:''}
+  </article>`;
+}
+function sysTable(head, rows){
+  return `<div class="tablewrap sys-table"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+function renderSysteme(){
+  const host=document.getElementById('systemeBody'); if(!host || typeof SYSTEME==='undefined') return;
+  const S=SYSTEME, ss=S.sousSecteur;
+  const index=S.corps.map(e=>`<li><a data-go="/systeme/${e.id}" href="#/systeme/${e.id}">${e.num?`<span class="n">${e.num}</span>`:''}${e.nom}</a></li>`).join('')
+    + `<li><a data-go="/systeme/institutions" href="#/systeme/institutions">Institutions et décrets</a></li>`
+    + `<li><a data-go="/systeme/cythonis" href="#/systeme/cythonis">Le sous-secteur Cythonis</a></li>`;
+  host.innerHTML=`<div class="sec-head"><span class="eyebrow">Dossier Administratum</span><h2>Le système de Cytherea</h2></div>
+    <dl class="fiche">${S.fiche.map(r=>`<div><dt>${r[0]}</dt><dd>${r[1]}</dd></div>`).join('')}</dl>
+    <ol class="sys-index">${index}</ol>
+    <div class="subhead">Les orbites</div>
+    ${S.corps.map(e=>sysEntry(e,0)).join('')}
+    <section class="sys-block" id="ancre-institutions" data-xref-self="/systeme/institutions">
+      <div class="subhead">Institutions</div>
+      ${sysTable(['Acteur','Siège','Nature'], S.institutions)}
+      <div class="subhead">Décrets et interdits en vigueur</div>
+      ${sysTable(['Décret','Objet','Émetteur'], S.decrets)}
+    </section>
+    <section class="sys-block" id="ancre-cythonis" data-xref-self="/systeme/cythonis">
+      <div class="sec-head sys-sec-head"><span class="eyebrow">Au-delà du système</span><h2>Le sous-secteur Cythonis</h2></div>
+      <div class="sys-lore">${ss.intro.map(t=>`<p>${t}</p>`).join('')}</div>
+      <dl class="fiche">${ss.position.map(r=>`<div><dt>${r[0]}</dt><dd>${r[1]}</dd></div>`).join('')}</dl>
+      <div class="subhead">Pourquoi Cytherea compte</div>
+      <div class="sys-lore"><p>${ss.compte.intro}</p><ol class="sys-points">${ss.compte.points.map(t=>`<li>${t}</li>`).join('')}</ol><p>${ss.compte.conclusion}</p></div>
+      <div class="subhead">Les autres systèmes</div>
+      ${ss.systemes.map(e=>sysEntry(e,0)).join('')}
+      <div class="subhead">Routes warp</div>
+      ${sysTable(['Route','Trajet','Durée','Statut'], ss.routes)}
+      <div class="sys-lore">${ss.routesNote.map(t=>`<p>${t}</p>`).join('')}</div>
+    </section>`;
 }
 document.addEventListener('click',e=>{
   const tb=e.target.closest('.tbtn');
   if(tb){ e.preventDefault(); const row=tb.closest('.hrow.track'); if(row) adjustEntry(row, tb.classList.contains('plus')?1:-1); return; }
   const j=e.target.closest('[data-jump]');
   if(j){e.preventDefault();const t=document.getElementById(j.getAttribute('data-jump'));if(t)t.scrollIntoView({behavior:'smooth',block:'start'});return;}
-  const t=e.target.closest('[data-go]');if(!t)return;e.preventDefault();go(t.getAttribute('data-go'));
+  const t=e.target.closest('[data-go]');if(!t)return;
+  if(t.tagName==='A' && t.getAttribute('href') && (e.ctrlKey||e.metaKey||e.shiftKey)) return;
+  e.preventDefault();navigate(t.getAttribute('data-go'));
 });
-renderFactions();renderActs();renderBattles();go('/');initAuth();
+renderSysteme();renderFactions();renderActs();renderBattles();go(CUR);initAuth();
