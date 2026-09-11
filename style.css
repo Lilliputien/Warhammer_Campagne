@@ -81,9 +81,8 @@ body::after{content:""; position:fixed; inset:0; pointer-events:none; z-index:1;
 body[data-theme="necrons"] .fond{background-image:url("fond-necrons.webp")}
 body[data-theme="red-choir"] .fond{background-image:url("fond-red-choir.webp")}
 body[data-theme="treizieme-cantique"] .fond{background-image:url("fond-treizieme-cantique.webp")}
-/* à venir :
 body[data-theme="custodes"] .fond{background-image:url("fond-custodes.webp")}
-body[data-theme="krieg"] .fond{background-image:url("fond-krieg.webp")} */
+body[data-theme="krieg"] .fond{background-image:url("fond-krieg.webp")}
 
 h1,h2,h3{font-family:var(--display); font-weight:400; letter-spacing:.04em; color:var(--bone); line-height:1.14; margin:0}
 .eyebrow{font-family:var(--display); font-size:.74rem; letter-spacing:.32em; text-transform:uppercase; color:var(--accent); display:inline-block}
