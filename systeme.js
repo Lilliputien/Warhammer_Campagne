@@ -125,7 +125,7 @@ const SYSTEME = {
     "Cinquante-deux milliards d'êtres humains empilés sous un ciel jaune sale.",
     "Les flèches-hive percent la couche de smog à onze kilomètres d'altitude, et à ces hauteurs-là l'air est clair, presque froid. On y trouve les palais du Conseil, les résidences des familles industrielles, les jardins sous dôme où poussent des plantes venues de Masalis. Sous les flèches, la ruche descend. Strate après strate, l'espace se comprime, la lumière disparaît, les noms des quartiers cessent d'apparaître sur les cartes officielles. Au niveau du sol, il n'y a plus de sol : seulement des kilomètres de fondations habitées, chauffées par les rejets thermiques des générateurs, où naissent et meurent des gens dont l'Administratum ignore l'existence.",
     "C'est un monde qui fonctionne. Mal, brutalement, mais il fonctionne. La dîme part chaque année, les manufactorum tournent, les Arbites maintiennent l'ordre avec une efficacité proportionnelle à leur brutalité.",
-    "Et à quatre cents kilomètres de la Flèche Primaire, dans une zone que personne ne visitait, le Mechanicus a foré."
+    "Et à deux cent soixante kilomètres de la Flèche Primaire, dans une zone que personne ne visitait, le Mechanicus a foré."
    ],
    "enfants": [
     {
@@ -259,7 +259,7 @@ const SYSTEME = {
    "lore": [
     "Des steppes à perte de vue, sous un ciel plus large que partout ailleurs dans le système. Huit milliards d'agriculteurs cultivant des céréales-void sur des exploitations grandes comme des provinces, élevant du bétail vaticinatoire dont les troupeaux sont conduits par des bergers à cheval et surveillés par des augures orbitaux.",
     "C'est le monde le plus paisible de Cytherea, et le plus étroitement contrôlé. La dîme agricole ne souffre aucun retard. La milice de Masalis n'a jamais combattu d'ennemi extérieur, elle a en revanche réprimé quatorze émeutes de la faim en trois siècles, ce qui est le paradoxe permanent d'un monde-grenier impérial.",
-    "Depuis quatre ans, Masalis compense le déficit de Hesper. Les quotas ont augmenté de dix-huit pour cent. Les rations locales ont diminué d'autant."
+    "Depuis huit ans, Masalis compense le déficit de Hesper. Les quotas ont augmenté de dix-huit pour cent. Les rations locales ont diminué d'autant."
    ],
    "enfants": []
   },
@@ -450,14 +450,14 @@ const SYSTEME = {
    "genre": "Planète",
    "nom": "Bastion Ashkar",
    "type": "Monde-garnison",
-   "pop": "~600 000 civils, ~140 000 militaires",
+   "pop": "~600 000 civils, ~132 000 militaires",
    "classe": "Militaire",
    "termes": [
     "Bastion Ashkar"
    ],
    "lore": [
     "Un monde entier consacré à une guerre qui n'est jamais venue.",
-    "Six cent mille civils, cent quarante mille soldats, et rien d'autre. Pas d'industrie propre, pas d'agriculture au-delà de la subsistance, pas de population native. Ashkar existe pour caserner, entraîner et projeter. Le régiment qui y stationne se renouvelle par recrutement sur Cytherea Prime et Vulkanis Rho, tous les vingt ans, sans interruption depuis la fondation."
+    "Six cent mille civils, cent trente-deux mille soldats, et rien d'autre. Pas d'industrie propre, pas d'agriculture au-delà de la subsistance, pas de population native. Ashkar existe pour caserner, entraîner et projeter. Le régiment qui y stationne se renouvelle par recrutement sur Cytherea Prime et Vulkanis Rho, tous les vingt ans, sans interruption depuis la fondation."
    ],
    "enfants": [
     {
@@ -470,7 +470,7 @@ const SYSTEME = {
      ],
      "lore": [
       "Murailles étagées, champs de tir couvrant l'horizon sur trente kilomètres, silos de défense enfoncés dans la roche mère, casemates redondantes, dépôts de munitions dimensionnés pour un siège de deux ans. Conçue pour tenir contre une invasion planétaire.",
-      "Jamais utilisée. Entretenue depuis quatre siècles par des hommes dont aucun n'a vu de combat, qui polissent des canons qui n'ont jamais tiré, qui répètent des manœuvres pour un ennemi théorique. On appelle cela, dans le reste du système, <em>la garnison qui attend</em>. Le terme n'est pas moqueur. Plus maintenant."
+      "Jamais utilisée. Entretenue depuis cinq cent septante ans par des hommes dont aucun n'a vu de combat, qui polissent des canons qui n'ont jamais tiré, qui répètent des manœuvres pour un ennemi théorique. On appelle cela, dans le reste du système, <em>la garnison qui attend</em>. Le terme n'est pas moqueur. Plus maintenant."
      ],
      "enfants": []
     },
@@ -533,7 +533,7 @@ const SYSTEME = {
         "Faille d'Écho"
        ],
        "lore": [
-        "La plus vaste des crevasses d'Echo's Shard. Sa géométrie produit une résonance acoustique naturelle : un son émis à une extrémité revient, amplifié, transformé, plusieurs minutes plus tard. Le phénomène est documenté depuis quatre siècles, étudié par une petite station de techno-augures, classé comme curiosité géologique sans intérêt stratégique.",
+        "La plus vaste des crevasses d'Echo's Shard. Sa géométrie produit une résonance acoustique naturelle : un son émis à une extrémité revient, amplifié, transformé, plusieurs minutes plus tard. Le phénomène est documenté depuis deux cent trente ans, étudié par une petite station de techno-augures, classé comme curiosité géologique sans intérêt stratégique.",
         "Le rapport de la station daté de six jours après l'éveil du Nœud signale que la Faille a commencé à émettre sans qu'aucun son n'y ait été introduit. Le rapport a été transmis à Occludus Rha. Il n'a reçu aucune réponse."
        ],
        "enfants": []
@@ -732,7 +732,7 @@ const SYSTEME = {
      "Hesper"
     ],
     "lore": [
-     "Hesper nourrit le sous-secteur, ou l'a fait. Deux mauvaises récoltes consécutives et une infestation de rouille-void ont fait chuter le rendement de près d'un tiers. Masalis compense le déficit depuis quatre ans."
+     "Hesper nourrit le sous-secteur, ou l'a fait. Deux mauvaises récoltes consécutives et une infestation de rouille-void ont fait chuter le rendement de près d'un tiers. Masalis compense le déficit depuis huit ans."
     ],
     "enfants": []
    },
