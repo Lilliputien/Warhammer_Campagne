@@ -449,3 +449,19 @@ footer .foot{font-family:var(--display); font-size:.66rem; letter-spacing:.24em;
   .resonance span{animation:none; opacity:.18}
   html{scroll-behavior:auto}
 }
+
+/* ============================================================
+   TEXTE JUSTIFIÉ
+   Le texte courant est aligné à gauche et à droite. La dernière
+   ligne d'un paragraphe reste alignée à gauche.
+   Restent comme avant : accueil centré (.hero), écran de connexion,
+   bandeau de chiffres, pied de page, tableaux, titres, listes courtes.
+   Césure française (lang="fr") activée seulement sur petit écran,
+   où la colonne est trop étroite pour justifier sans trous.
+   ============================================================ */
+p, .sys-points li, .hfait, .hregle{text-align:justify; text-wrap:pretty}
+.hero p, .gate-card p, .strip p, footer p, td p{text-align:inherit}
+@media (max-width:760px){
+  p, .sys-points li, .hfait, .hregle{-webkit-hyphens:auto; hyphens:auto; hyphenate-limit-chars:7 3 3}
+  .hero p, .gate-card p, .strip p, footer p, td p{-webkit-hyphens:manual; hyphens:manual}
+}
