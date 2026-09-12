@@ -319,6 +319,17 @@ a.xref:focus-visible{outline:2px solid var(--accent-bright); outline-offset:2px}
 .sys-lore{max-width:700px; margin-top:12px}
 .sys-lore p{margin:0 0 12px}
 .sys-lore p:last-child{margin-bottom:0}
+/* Illustrations des corps (page Système). Image fixe, aucun effet : le survol ne change que le filet. */
+.corps-imgs{margin:16px 0 4px; max-width:700px}
+.corps-imgs.duo{display:grid; grid-template-columns:1fr 1fr; gap:10px; align-items:start; max-width:834px}
+.corps-img{margin:0}
+.corps-img a{display:block; line-height:0; border:1px solid var(--line); background:#000}
+.corps-img a:hover{border-color:var(--line-strong)}
+.corps-img a:focus-visible{outline:1px solid var(--accent-bright); outline-offset:2px}
+.corps-img img{display:block; width:100%; height:auto}
+.corps-imgs.duo .corps-img img{aspect-ratio:3/2; object-fit:cover}
+.corps-img figcaption{font-family:var(--display); font-size:.55rem; letter-spacing:.16em; text-transform:uppercase; color:var(--bone-dim); margin-top:6px}
+@media (max-width:620px){.corps-imgs.duo{grid-template-columns:1fr}}
 .sys-points{margin:0 0 12px; padding-left:22px}
 .sys-points li{margin:6px 0}
 

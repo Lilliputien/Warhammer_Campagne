@@ -745,9 +745,21 @@ function sysEntry(e, depth){
     ${head}
     ${e.type?`<div class="corps-type">${e.type}</div>`:''}
     ${meta.length?`<dl class="corps-meta">${meta.join('')}</dl>`:''}
+    ${sysImages(e)}
     ${(e.lore||[]).length?`<div class="sys-lore">${e.lore.map(t=>`<p>${t}</p>`).join('')}</div>`:''}
     ${(e.enfants||[]).length?`<div class="corps-enfants">${e.enfants.map(c=>sysEntry(c,depth+1)).join('')}</div>`:''}
   </article>`;
+}
+/* Illustrations d'un corps : e.images = [{src, w, h, legende?}], fichiers dans systeme/.
+   Clic = image en grand dans un nouvel onglet. Chargement différé : la page
+   Système rend toutes les fiches d'un coup. */
+function sysImages(e){
+  const L=e.images||[]; if(!L.length) return '';
+  const nom=e.nom.replace(/"/g,'&quot;');
+  return `<div class="corps-imgs${L.length>1?' duo':''}">${L.map(im=>{
+    const alt=nom+(im.legende?', '+im.legende.toLowerCase():'');
+    return `<figure class="corps-img"><a href="${im.src}" target="_blank" rel="noopener" title="${alt} (ouvrir en grand)"><img src="${im.src}" alt="${alt}"${im.w?` width="${im.w}" height="${im.h}"`:''} loading="lazy" decoding="async"></a>${im.legende?`<figcaption>${im.legende}</figcaption>`:''}</figure>`;
+  }).join('')}</div>`;
 }
 function sysTable(head, rows){
   return `<div class="tablewrap sys-table"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead>

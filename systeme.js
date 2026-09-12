@@ -9,6 +9,7 @@
      termes  mots qui deviennent des liens partout sur le site
              (retirer un terme ici = plus de lien pour ce mot)
      enfants lieux nommés, lunes, stations, seuils rattachés
+     images  illustrations (dossier systeme/, WebP), légende facultative
    Chargé AVANT script.js.
    ============================================================ */
 const SYSTEME = {
@@ -79,6 +80,13 @@ const SYSTEME = {
   },
   {
    "id": "ceinture-kharvos",
+   "images": [
+    {
+     "src": "systeme/ceinture-kharvos.webp",
+     "w": 1344,
+     "h": 896
+    }
+   ],
    "num": "",
    "genre": "Champ d'astéroïdes",
    "nom": "Ceinture de Kharvos",
@@ -95,6 +103,13 @@ const SYSTEME = {
   },
   {
    "id": "kharvos",
+   "images": [
+    {
+     "src": "systeme/kharvos.webp",
+     "w": 1344,
+     "h": 896
+    }
+   ],
    "num": "I",
    "genre": "Planète",
    "nom": "Kharvos",
@@ -111,6 +126,13 @@ const SYSTEME = {
   },
   {
    "id": "cytherea-prime",
+   "images": [
+    {
+     "src": "systeme/cytherea-prime.webp",
+     "w": 1344,
+     "h": 896
+    }
+   ],
    "num": "II",
    "genre": "Planète",
    "nom": "Cytherea Prime",
@@ -130,6 +152,13 @@ const SYSTEME = {
    "enfants": [
     {
      "id": "plaine-de-verre",
+     "images": [
+      {
+       "src": "systeme/plaine-de-verre.webp",
+       "w": 1456,
+       "h": 816
+      }
+     ],
      "genre": "Lieu",
      "nom": "La Plaine de Verre",
      "type": "Région vitrifiée, emplacement du Nœud",
@@ -146,6 +175,13 @@ const SYSTEME = {
     },
     {
      "id": "trone-fer-blanc",
+     "images": [
+      {
+       "src": "systeme/trone-fer-blanc.webp",
+       "w": 1456,
+       "h": 816
+      }
+     ],
      "genre": "Lieu",
      "nom": "Le Trône de Fer-Blanc",
      "type": "Siège du Conseil Système",
@@ -160,6 +196,13 @@ const SYSTEME = {
     },
     {
      "id": "cytherea-minor",
+     "images": [
+      {
+       "src": "systeme/cytherea-minor.webp",
+       "w": 1344,
+       "h": 896
+      }
+     ],
      "num": "II.a",
      "genre": "Lune",
      "nom": "Cytherea Minor",
@@ -176,6 +219,13 @@ const SYSTEME = {
     },
     {
      "id": "voidhold",
+     "images": [
+      {
+       "src": "systeme/voidhold.webp",
+       "w": 1456,
+       "h": 816
+      }
+     ],
      "num": "",
      "genre": "Station orbitale",
      "nom": "Voidhold",
@@ -194,6 +244,13 @@ const SYSTEME = {
     },
     {
      "id": "seuil-aquila",
+     "images": [
+      {
+       "src": "systeme/seuil-aquila.webp",
+       "w": 1344,
+       "h": 896
+      }
+     ],
      "num": "",
      "genre": "Seuil warp",
      "nom": "Seuil de l'Aquila",
@@ -215,6 +272,13 @@ const SYSTEME = {
   },
   {
    "id": "solferrum",
+   "images": [
+    {
+     "src": "systeme/solferrum.webp",
+     "w": 1344,
+     "h": 896
+    }
+   ],
    "num": "III",
    "genre": "Planète",
    "nom": "Solferrum",
@@ -231,6 +295,13 @@ const SYSTEME = {
    "enfants": [
     {
      "id": "gueules-solferrum",
+     "images": [
+      {
+       "src": "systeme/gueules-solferrum.webp",
+       "w": 1456,
+       "h": 816
+      }
+     ],
      "genre": "Lieu",
      "nom": "Les Gueules de Solferrum",
      "type": "Puits d'extraction",
@@ -247,6 +318,13 @@ const SYSTEME = {
   },
   {
    "id": "masalis",
+   "images": [
+    {
+     "src": "systeme/masalis.webp",
+     "w": 1344,
+     "h": 896
+    }
+   ],
    "num": "IV",
    "genre": "Planète",
    "nom": "Masalis",
@@ -265,6 +343,20 @@ const SYSTEME = {
   },
   {
    "id": "vulkanis-rho",
+   "images": [
+    {
+     "src": "systeme/vulkanis-rho.webp",
+     "w": 1344,
+     "h": 896,
+     "legende": "Vue orbitale"
+    },
+    {
+     "src": "systeme/vulkanis-rho-rapprochee.webp",
+     "w": 1456,
+     "h": 816,
+     "legende": "Vue rapprochée"
+    }
+   ],
    "num": "V",
    "genre": "Planète",
    "nom": "Vulkanis Rho",
@@ -282,6 +374,13 @@ const SYSTEME = {
    "enfants": [
     {
      "id": "cendre-basse",
+     "images": [
+      {
+       "src": "systeme/cendre-basse.webp",
+       "w": 1344,
+       "h": 896
+      }
+     ],
      "num": "V.a",
      "genre": "Lune",
      "nom": "Cendre-Basse",
@@ -300,6 +399,13 @@ const SYSTEME = {
   },
   {
    "id": "occludus-rha",
+   "images": [
+    {
+     "src": "systeme/occludus-rha.webp",
+     "w": 1344,
+     "h": 896
+    }
+   ],
    "num": "VI",
    "genre": "Planète",
    "nom": "Occludus Rha",
@@ -322,6 +428,20 @@ const SYSTEME = {
   },
   {
    "id": "ossiana",
+   "images": [
+    {
+     "src": "systeme/ossiana.webp",
+     "w": 1344,
+     "h": 896,
+     "legende": "Vue orbitale"
+    },
+    {
+     "src": "systeme/ossiana-rapprochee.webp",
+     "w": 1456,
+     "h": 816,
+     "legende": "Vue rapprochée"
+    }
+   ],
    "num": "VII",
    "genre": "Planète",
    "nom": "Ossiana",
@@ -338,6 +458,13 @@ const SYSTEME = {
    "enfants": [
     {
      "id": "cathedrale-saint-vhalen",
+     "images": [
+      {
+       "src": "systeme/cathedrale-saint-vhalen.webp",
+       "w": 1456,
+       "h": 816
+      }
+     ],
      "genre": "Lieu",
      "nom": "La Cathédrale-Montagne de Saint Vhalen",
      "type": "Siège du Cardinal d'Ossiana",
@@ -354,6 +481,13 @@ const SYSTEME = {
     },
     {
      "id": "lacrima",
+     "images": [
+      {
+       "src": "systeme/lacrima.webp",
+       "w": 1344,
+       "h": 896
+      }
+     ],
      "num": "VII.a",
      "genre": "Lune",
      "nom": "Lacrima",
@@ -372,6 +506,20 @@ const SYSTEME = {
   },
   {
    "id": "naogeth",
+   "images": [
+    {
+     "src": "systeme/naogeth.webp",
+     "w": 1344,
+     "h": 896,
+     "legende": "Vue orbitale"
+    },
+    {
+     "src": "systeme/naogeth-rapprochee.webp",
+     "w": 1456,
+     "h": 816,
+     "legende": "Vue rapprochée"
+    }
+   ],
    "num": "VIII",
    "genre": "Planète",
    "nom": "Naogeth",
@@ -400,6 +548,13 @@ const SYSTEME = {
      "enfants": [
       {
        "id": "parvis-mort",
+       "images": [
+        {
+         "src": "systeme/parvis-mort.webp",
+         "w": 1456,
+         "h": 816
+        }
+       ],
        "genre": "Lieu",
        "nom": "Le Parvis Mort",
        "type": "Esplanade d'entrée de la ruche",
@@ -413,6 +568,13 @@ const SYSTEME = {
       },
       {
        "id": "strates-basses",
+       "images": [
+        {
+         "src": "systeme/strates-basses.webp",
+         "w": 1456,
+         "h": 816
+        }
+       ],
        "genre": "Lieu",
        "nom": "Les Strates Basses",
        "type": "Profondeurs de la ruche",
@@ -427,6 +589,13 @@ const SYSTEME = {
       },
       {
        "id": "coeur-mecanique",
+       "images": [
+        {
+         "src": "systeme/coeur-mecanique.webp",
+         "w": 1456,
+         "h": 816
+        }
+       ],
        "genre": "Lieu",
        "nom": "Le Cœur Mécanique",
        "type": "Ancien complexe générateur",
@@ -446,6 +615,13 @@ const SYSTEME = {
   },
   {
    "id": "bastion-ashkar",
+   "images": [
+    {
+     "src": "systeme/bastion-ashkar.webp",
+     "w": 1344,
+     "h": 896
+    }
+   ],
    "num": "IX",
    "genre": "Planète",
    "nom": "Bastion Ashkar",
@@ -476,6 +652,13 @@ const SYSTEME = {
     },
     {
      "id": "seuil-ashkar",
+     "images": [
+      {
+       "src": "systeme/seuil-ashkar.webp",
+       "w": 1344,
+       "h": 896
+      }
+     ],
      "num": "",
      "genre": "Seuil warp",
      "nom": "Seuil Ashkar",
@@ -496,6 +679,13 @@ const SYSTEME = {
   },
   {
    "id": "tarn-voidus",
+   "images": [
+    {
+     "src": "systeme/tarn-voidus.webp",
+     "w": 1344,
+     "h": 896
+    }
+   ],
    "num": "X",
    "genre": "Planète",
    "nom": "Tarn Voidus",
@@ -511,6 +701,13 @@ const SYSTEME = {
    "enfants": [
     {
      "id": "echos-shard",
+     "images": [
+      {
+       "src": "systeme/echos-shard.webp",
+       "w": 1344,
+       "h": 896
+      }
+     ],
      "num": "X.a",
      "genre": "Lune",
      "nom": "Echo's Shard",
@@ -526,6 +723,13 @@ const SYSTEME = {
      "enfants": [
       {
        "id": "faille-echo",
+       "images": [
+        {
+         "src": "systeme/faille-echo.webp",
+         "w": 1456,
+         "h": 816
+        }
+       ],
        "genre": "Lieu",
        "nom": "La Faille d'Écho",
        "type": "Crevasse à résonance acoustique",
@@ -542,6 +746,13 @@ const SYSTEME = {
     },
     {
      "id": "champ-tarn",
+     "images": [
+      {
+       "src": "systeme/champ-tarn.webp",
+       "w": 1344,
+       "h": 896
+      }
+     ],
      "num": "",
      "genre": "Champ d'astéroïdes",
      "nom": "Champ de Tarn",
@@ -560,6 +771,13 @@ const SYSTEME = {
   },
   {
    "id": "frostmark-carcer",
+   "images": [
+    {
+     "src": "systeme/frostmark-carcer.webp",
+     "w": 1344,
+     "h": 896
+    }
+   ],
    "num": "XI",
    "genre": "Planète",
    "nom": "Frostmark Carcer",
