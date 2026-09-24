@@ -411,6 +411,335 @@ const JOURNAL = [
       "Il a fini par ordonner qu'on cesse d'essayer. Il a dit que c'était une réponse."] },
 ];
 
+/* ------------------------------------------------------------
+   CHRONOLOGIE (frise de la page Actes)
+   Prologue (une partie par joueur) puis 4 actes de 4 parties.
+   - Les actes scellés (ACTS[].locked) ne montrent qu'un jalon unique,
+     sans titre de partie : rien de secret ne doit être écrit ici,
+     ce fichier est public.
+   - lieu : identifiant d'une entrée de systeme.js (image, nom, renvoi
+     vers /systeme/<id> viennent de là).
+   - etat : 'jouee' | 'en-cours' | 'a-venir'
+   - Les embranchements (BRANCHES) ne sont PAS ici : ils viendront de
+     Supabase (étape 2). Récit, lieu et photo sont visibles de tous une
+     fois révélés ; le gain de jeu n'arrive que pour la faction concernée.
+   ------------------------------------------------------------ */
+const CHRONO_PALIERS={prologue:"Une partie par joueur","1":"500 à 1000 pts","2":"Jusqu'à 1500 pts","3":"1500 à 2000 pts","4":"2000 pts et plus"};
+const CHRONO_PROLOGUE={num:"Prologue", title:"L'Arrivée", parts:[
+  { id:"pro-necrons", faction:"necrons", label:"Éveillés", etat:"a-venir" },
+  { id:"pro-red-choir", faction:"red-choir", label:"Chœur", etat:"a-venir" },
+  { id:"pro-treizieme-cantique", faction:"treizieme-cantique", label:"Cantique", etat:"a-venir" },
+  { id:"pro-custodes", faction:"custodes", label:"Garde", etat:"a-venir" },
+  { id:"pro-krieg", faction:"krieg", label:"88e", etat:"a-venir" },
+]};
+const CHRONO_PARTS={
+  "1":[
+    { id:"a1p1", label:"Partie 1", titre:"Saignée", date:"M42.018.036", lieu:"faille-echo", camps:["Le Treizième Cantique","La 88e de Krieg"], vainqueur:"Le Treizième Cantique", etat:"jouee" },
+    { id:"a1p2", label:"Partie 2", titre:"Reconnaissance en force", date:"M42.018.039", lieu:"ruche-sepulcre", camps:["Les Éveillés","La Garde Cytheréenne"], vainqueur:"Match nul", etat:"jouee" },
+    { id:"a1p3", label:"Partie 3", titre:"Tête de pont", date:"M42.018.041", lieu:"plaine-de-verre", camps:["Le Chœur Rouge","La 88e de Krieg"], vainqueur:"Le Chœur Rouge", etat:"jouee" },
+    { id:"a1p4", label:"Partie 4", etat:"a-venir" },
+  ],
+};
+/* Embranchements : rempli par loadBranches() (étape 2, Supabase).
+   { id, part, faction, etat:'debloque'|'ferme', titre, lieu, recit, photo, gain }
+   gain est absent si le joueur n'est pas de la faction concernée. */
+let BRANCHES=[];
+let CHRONO_SEL=null;
+
+function sysFind(id){
+  let hit=null;
+  (function walk(list,parent){ (list||[]).forEach(e=>{ if(hit) return; if(e.id===id){hit={e,parent};return;} walk(e.enfants,e); }); })((typeof SYSTEME!=='undefined'&&SYSTEME.corps)||[],null);
+  if(!hit) return null;
+  const img=(hit.e.images&&hit.e.images[0])||(hit.parent&&hit.parent.images&&hit.parent.images[0])||null;
+  return {e:hit.e, parent:hit.parent, img};
+}
+function aFaction(n){ return n.replace(/^Les /,'aux ').replace(/^Le /,'au ').replace(/^La /,'à la ').replace(/^(?!aux |au |à la )/,'à '); }
+function facByName(n){ return FACTIONS.find(f=>f.name===n); }
+function chronoGroups(){
+  const g=[{id:'prologue', num:CHRONO_PROLOGUE.num, title:CHRONO_PROLOGUE.title, sealed:false, parts:CHRONO_PROLOGUE.parts}];
+  ACTS.forEach(a=>g.push({id:a.id, num:a.num, title:a.title, sealed:!!a.locked, teaser:a.teaser,
+    parts: a.locked ? [{id:'act'+a.id, label:'Scellé', etat:'scelle'}] : (CHRONO_PARTS[a.id]||[1,2,3,4].map(n=>({id:`a${a.id}p${n}`,label:'Partie '+n,etat:'a-venir'})))}));
+  return g;
+}
+function chronoRef(id){ return 'CYT-'+String(id).toUpperCase().replace(/^PRO-/,'PRO·').replace(/P(\d)$/,'·P$1'); }
+/* réticule de visée autour du jalon sélectionné (coins, non tourné) */
+const CH_RET='<svg class="ch-ret" viewBox="0 0 34 34" aria-hidden="true"><path d="M1 9V1H9M25 1H33V9M33 25V33H25M9 33H1V25"/></svg>';
+function chronoMark(cls){ return `<span class="ch-mark ${cls}" aria-hidden="true"></span>`; }
+function renderChrono(){
+  const host=document.getElementById('chrono'); if(!host) return;
+  const groups=chronoGroups();
+  const acts=groups.map(g=>`<div class="ch-act${g.sealed?' sealed':''}">
+      <div class="ch-act-h"><div class="ch-act-t"><span class="ch-num">${g.num}</span><span class="ch-title">${g.title}</span><span class="ch-pal">${CHRONO_PALIERS[g.id]||''}</span><span class="ch-ref">Réf. ${chronoRef(g.id==='prologue'?'pro':'a'+g.id)}${g.sealed?' · accès restreint':''}</span></div></div>
+      <div class="ch-parts">${g.parts.map(p=>{
+        const br=BRANCHES.filter(b=>b.part===p.id);
+        const facs=p.faction?[p.faction]:(p.camps||[]).map(n=>{const f=facByName(n);return f?f.id:null;}).filter(Boolean);
+        const win=p.etat==='jouee'&&p.vainqueur?facByName(p.vainqueur):null;
+        return `<div class="ch-col"${p.faction?` data-theme="${p.faction}"`:''} data-fac="${facs.join(' ')}"${win?` data-win="${win.id}"`:''}>
+          <button type="button" class="ch-node" data-ch="${p.id}" aria-pressed="false" title="${g.num} · ${p.titre||p.label}">${CH_RET}${chronoMark(p.etat)}<span class="ch-lab">${p.label}</span>${p.titre?`<span class="ch-sub">${p.titre}</span>`:''}</button>
+          ${br.length?`<div class="ch-brs">${br.map(b=>{
+            const f=FACTIONS.find(x=>x.id===b.faction);
+            const st=b.etat==='ferme'?'ferme':'debloque';
+            const lab=st==='ferme'?'Voie scellée':b.titre;
+            return `<button type="button" class="ch-br ${st}" data-ch="br:${b.id}" data-fac="${b.faction||''}"${f&&st!=='ferme'?` data-theme="${f.id}"`:''} aria-pressed="false">${chronoMark('b-'+st)}<span>${lab}</span></button>`;}).join('')}</div>`:''}
+        </div>`;}).join('')}</div>
+    </div>`).join('');
+  const nParts=groups.flatMap(g=>g.parts).filter(p=>p.etat==='jouee').length, nSealed=groups.filter(g=>g.sealed).length;
+  host.innerHTML=`<div class="ch-stage">
+      <div class="ch-hud"><span>+++ Registre chronologique · Système Cytherea +++</span><span>Cythonis-VII · Imperium Nihilus</span></div>
+      <div class="ch-plate" aria-hidden="true"><span>Chronologie</span></div>
+      <span class="ch-corner tl" aria-hidden="true"></span><span class="ch-corner tr" aria-hidden="true"></span><span class="ch-corner bl" aria-hidden="true"></span><span class="ch-corner br" aria-hidden="true"></span>
+      <div class="ch-readout" aria-hidden="true">Engagements consignés ${String(nParts).padStart(2,'0')} · Embranchements ${String(BRANCHES.filter(b=>b.etat!=='ferme').length).padStart(2,'0')} · Actes scellés ${String(nSealed).padStart(2,'0')}</div>
+      <div class="ch-track" tabindex="-1"><div class="ch-rail">${acts}</div></div>
+      <div class="ch-nav"><button type="button" class="ch-arrow" data-dir="-1" aria-label="Défiler vers la gauche">‹</button><span class="ch-hint">Faites glisser la frise</span><button type="button" class="ch-arrow" data-dir="1" aria-label="Défiler vers la droite">›</button>${(ME.factions||[]).length?'<button type="button" class="ch-mine-btn" aria-pressed="false">Ma route</button>':''}</div>
+      <aside class="ch-panel" id="chPanel" aria-live="polite" hidden></aside>
+    </div>
+    <div class="wrap-in"><div class="ch-mini" aria-label="Aller à un acte">${groups.map(g=>`<button type="button" class="ch-mini-a${g.sealed?' sealed':''}" data-mini="${g.id}">${g.num}</button>`).join('')}<span class="ch-mini-view" aria-hidden="true"></span></div><p class="ch-legend"><span>${chronoMark('jouee')} Jouée</span><span>${chronoMark('en-cours')} En cours</span><span>${chronoMark('a-venir')} À venir</span><span>${chronoMark('scelle')} Scellé</span><span>${chronoMark('b-debloque')} Embranchement</span><span>${chronoMark('b-ferme')} Voie scellée</span></p></div>`;
+  chronoDrag(host.querySelector('.ch-track'));
+  host.querySelector('.ch-track').addEventListener('scroll',chronoMini,{passive:true});
+  host.classList.remove('mine');
+  if(!CHRONO_SEL){
+    const all=groups.flatMap(g=>g.parts);
+    const cur=all.find(p=>p.etat==='en-cours')||all.filter(p=>p.etat==='jouee').pop()||all[0];
+    CHRONO_SEL=cur.id;
+  }
+  chronoSelect(CHRONO_SEL,true);
+  document.getElementById('chPanel').hidden=true;   // panneau fermé tant qu'on n'a pas cliqué
+  chronoLine();
+}
+/* glisser à la souris pour faire défiler la frise (le tactile défile nativement).
+   Un glissement de plus de 5 px annule le clic sur le jalon relâché. */
+/* ------------------------------------------------------------
+   LIGNE ORGANIQUE
+   Chaque colonne de jalon est décalée verticalement selon une
+   ondulation fixe (même dessin à chaque visite), puis une courbe
+   lissée (Catmull-Rom) est tracée à travers les losanges.
+   Trait plein jusqu'au premier acte scellé, pointillé ensuite.
+   Couleurs via currentColor : pilotées par style.css.
+   ------------------------------------------------------------ */
+function chronoWave(i, amp){ return Math.round(amp*(0.62*Math.sin(i*1.13+0.5)+0.38*Math.sin(i*0.41+2.1))); }
+/* points de contrôle d'un filet d'embranchement : il quitte le jalon en biais,
+   puis arrive à la verticale sur son losange (même forme au tracé et au placement) */
+function chronoCtrl(x0,y0,x1,y1){ const dx=x1-x0, dy=y1-y0; return [x0+dx*.55, y0+dy*.35, x1, y1-dy*.5]; }
+function chronoLine(){
+  const rail=document.querySelector('#chrono .ch-rail'); if(!rail||!rail.offsetWidth) return;
+  const small=window.innerWidth<760, amp=small?22:46;
+  const cols=[...rail.querySelectorAll('.ch-col')];
+  cols.forEach((c,i)=>{ c.style.transform=`translateY(${chronoWave(i,amp)}px)`; });
+  /* embranchements : au-dessus ou au-dessous de leur jalon, en alternance.
+     Placement de gauche à droite ; une position n'est retenue que si
+     - son libellé ne touche aucun libellé, jalon ou titre d'acte déjà posé,
+     - son filet ne coupe aucun autre filet ni aucun libellé.
+     Sinon : l'autre côté, l'autre sens, puis un cran plus loin. */
+  const tr=rail.parentElement, keep=tr.scrollLeft; tr.scrollLeft=0;   // mesures hors effet collant
+  const R0=rail.getBoundingClientRect(), pad=8, boxes=[], lines=[];
+  const rel=r=>({l:r.left-R0.left, r:r.right-R0.left, t:r.top-R0.top, b:r.bottom-R0.top});
+  rail.querySelectorAll('.ch-act-t, .ch-node').forEach(n=>boxes.push(rel(n.getBoundingClientRect())));
+  const inBox=(x,y,q)=>x>q.l-pad && x<q.r+pad && y>q.t-pad && y<q.b+pad;
+  const overlap=(a,q)=>a.l<q.r+pad && a.r>q.l-pad && a.t<q.b+pad && a.b>q.t-pad;
+  const curve=(x0,y0,x1,y1)=>{ const [c1x,c1y,c2x,c2y]=chronoCtrl(x0,y0,x1,y1), P=[];
+    for(let t=0;t<=1.0001;t+=1/18){ const u=1-t;
+      P.push({x:u*u*u*x0+3*u*u*t*c1x+3*u*t*t*c2x+t*t*t*x1, y:u*u*u*y0+3*u*u*t*c1y+3*u*t*t*c2y+t*t*t*y1}); }
+    return P; };
+  const cross=(a,b,c,d)=>{ const o=(p,q,r)=>Math.sign((q.x-p.x)*(r.y-p.y)-(q.y-p.y)*(r.x-p.x));
+    return o(a,b,c)!==o(a,b,d) && o(c,d,a)!==o(c,d,b); };
+  const pathHits=(P,own)=>{
+    for(let k=2;k<P.length-2;k++) if(boxes.some(q=>q!==own && inBox(P[k].x,P[k].y,q))) return true;
+    for(const L of lines){ const same=Math.hypot(L[0].x-P[0].x, L[0].y-P[0].y)<6, s0=same?4:1;   // filets frères : même origine
+      for(let k=s0;k<P.length-1;k++) for(let m=s0;m<L.length-1;m++) if(cross(P[k-1],P[k],L[m-1],L[m])) return true; }
+    return false; };
+  cols.forEach((c,i)=>{
+    const brs=[...c.querySelectorAll('.ch-br')]; if(!brs.length) return;
+    const cr=c.getBoundingClientRect(), m=c.querySelector('.ch-node .ch-mark').getBoundingClientRect(), nb=c.querySelector('.ch-node').getBoundingClientRect();
+    const own=boxes.find(q=>Math.abs(q.t-(nb.top-R0.top))<1 && Math.abs(q.l-(nb.left-R0.left))<1);
+    const ox=cr.left-R0.left, oy=cr.top-R0.top, mx=m.left+m.width/2-cr.left;
+    const foot=nb.bottom-cr.top, head=m.top-cr.top-4;
+    const base=small?36:46, lvl=small?38:44;
+    brs.forEach((b,k)=>{
+      const up0=k%2===1;                       // 1er vers le bas, 2e vers le haut, 3e vers le bas…
+      const w=Math.max(24, b.querySelector('span:last-child').offsetWidth), h=b.offsetHeight, jit=chronoWave(i*3+k, small?5:9);
+      let pos=null;
+      // toujours vers la droite (le temps avance) : d'abord tout près du jalon,
+      // quitte à s'éloigner de la ligne de plusieurs crans, puis un cran plus à droite
+      for(const sx of [1,2,3]) for(let L=0; L<10 && !pos; L++) for(const up of [up0,!up0]) { if(pos) break;
+        {
+          const x=mx+(w/2+16)+(sx-1)*(w*.6+18)+Math.abs(jit);   // le libellé dégage l'axe du jalon
+          const y=up ? head-base-L*lvl : foot+base+L*lvl;           // centre du losange
+          const bx= up ? {l:ox+x-w/2, r:ox+x+w/2, t:oy+y-h+8, b:oy+y+8} : {l:ox+x-w/2, r:ox+x+w/2, t:oy+y-8, b:oy+y-8+h};
+          if(bx.t<4 || bx.b>rail.offsetHeight-60) continue;          // reste dans la bande, au-dessus des flèches
+          if(boxes.some(q=>overlap(bx,q))) continue;
+          if(lines.some(Ln=>Ln.some(p=>inBox(p.x,p.y,bx)))) continue;
+          const P=curve(ox+mx, oy+(up?head:foot), ox+x, oy+y+(up?8:-8));
+          if(pathHits(P,own)) continue;
+          pos={x,y,up,bx,P}; break;
+        }
+      }
+      if(!pos){ const y=foot+base+10*lvl; pos={x:mx,y,up:false,bx:{l:ox+mx-w/2,r:ox+mx+w/2,t:oy+y-8,b:oy+y-8+h},P:[]}; }
+      boxes.push(pos.bx); if(pos.P.length) lines.push(pos.P);
+      b.classList.toggle('up',pos.up);
+      b.style.left=Math.round(pos.x)+'px'; b.style.top=Math.round(pos.y)+'px';
+    });
+  });
+  tr.scrollLeft=keep;
+  const R=rail.getBoundingClientRect();
+  const mid=el=>{ const r=el.getBoundingClientRect(); return {x:r.left+r.width/2-R.left, y:r.top+r.height/2-R.top}; };
+  const pts=cols.map(c=>mid(c.querySelector('.ch-node .ch-mark')));
+  const foot=cols.map(c=>c.querySelector('.ch-node').getBoundingClientRect().bottom-R.top);
+  if(!pts.length) return;
+  const W=rail.scrollWidth, H=rail.offsetHeight;
+  const P=[{x:0,y:pts[0].y}, ...pts, {x:W,y:pts[pts.length-1].y}];
+  let d=`M${P[0].x},${P[0].y}`;
+  for(let i=0;i<P.length-1;i++){
+    const a=P[i-1]||P[i], b=P[i], c=P[i+1], e=P[i+2]||c;
+    d+=` C${(b.x+(c.x-a.x)/6).toFixed(1)},${(b.y+(c.y-a.y)/6).toFixed(1)} ${(c.x-(e.x-b.x)/6).toFixed(1)},${(c.y-(e.y-b.y)/6).toFixed(1)} ${c.x.toFixed(1)},${c.y.toFixed(1)}`;
+  }
+  /* filets des embranchements : partent vers le bas du jalon puis s'infléchissent */
+  const f=n=>n.toFixed(1);
+  const branches=cols.flatMap((c,i)=>[...c.querySelectorAll('.ch-br')].map(b=>{
+    const up=b.classList.contains('up');
+    const p0={x:pts[i].x, y:up?pts[i].y-12:foot[i]-2}, p1=mid(b.querySelector('.ch-mark')), dy=p1.y-p0.y;
+    const th=b.getAttribute('data-theme');
+    const e={x:p1.x, y:p1.y+(up?8:-8)}, [c1x,c1y,c2x,c2y]=chronoCtrl(p0.x,p0.y,e.x,e.y);
+    return `<path class="ch-l-br${b.classList.contains('ferme')?' ferme':''}" data-fac="${b.getAttribute('data-fac')}"${th?` data-theme="${th}"`:''} d="M${f(p0.x)},${f(p0.y)} C${f(c1x)},${f(c1y)} ${f(c2x)},${f(c2y)} ${f(e.x)},${f(e.y)}"/>`;
+  })).join('');
+  /* segment qui mène à une partie jouée : couleur de la faction victorieuse */
+  const seg=[]; let d2=''; 
+  for(let i=0;i<P.length-1;i++){
+    const a=P[i-1]||P[i], b=P[i], c=P[i+1], e=P[i+2]||c;
+    seg.push(`M${b.x.toFixed(1)},${b.y.toFixed(1)} C${(b.x+(c.x-a.x)/6).toFixed(1)},${(b.y+(c.y-a.y)/6).toFixed(1)} ${(c.x-(e.x-b.x)/6).toFixed(1)},${(c.y-(e.y-b.y)/6).toFixed(1)} ${c.x.toFixed(1)},${c.y.toFixed(1)}`);
+  }
+  /* graduation de cogitateur sous le bandeau du haut : petit cran tous les 40 px, grand tous les 200 */
+  let ruler='<path class="ch-ruler" d="'; for(let x=0;x<W;x+=40) ruler+=`M${x},34v${x%200?4:9}`; ruler+='"/>';
+  const wins=cols.map((c,i)=>{ const w=c.getAttribute('data-win'); return w?`<path class="ch-l-win" data-theme="${w}" d="${seg[i]}"/>`:''; }).join('');
+  const sealed=rail.querySelector('.ch-act.sealed');
+  const split=sealed ? sealed.getBoundingClientRect().left-R.left : W;
+  let svg=rail.querySelector('svg.ch-line');
+  if(!svg){ svg=document.createElementNS('http://www.w3.org/2000/svg','svg'); svg.setAttribute('class','ch-line'); svg.setAttribute('aria-hidden','true'); rail.prepend(svg); }
+  svg.setAttribute('width',W); svg.setAttribute('height',H); svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  svg.innerHTML=`<defs><clipPath id="chOpen"><rect x="0" y="0" width="${split}" height="${H}"/></clipPath>
+      <clipPath id="chSealed"><rect x="${split}" y="0" width="${Math.max(0,W-split)}" height="${H}"/></clipPath></defs>
+    <path class="ch-l-open" d="${d}" clip-path="url(#chOpen)"/>
+    <path class="ch-l-sealed" d="${d}" clip-path="url(#chSealed)"/>${ruler}${wins}${branches}`;
+  chronoMini();
+  const host=document.getElementById('chrono');
+  if(host&&host.classList.contains('mine')){ host.classList.remove('mine'); chronoMine(); }
+}
+window.addEventListener('resize',()=>{ if(CUR==='/actes') chronoLine(); });
+/* réglette des actes : un repère par acte, largeur proportionnelle ; la fenêtre
+   claire montre la portion de frise visible à l'écran */
+function chronoMini(){
+  const tr=document.querySelector('#chrono .ch-track'), mini=document.querySelector('#chrono .ch-mini'); if(!tr||!mini||!tr.scrollWidth) return;
+  const acts=[...document.querySelectorAll('#chrono .ch-act')], W=tr.scrollWidth;
+  mini.querySelectorAll('[data-mini]').forEach((b,i)=>{ if(acts[i]) b.style.flexGrow=acts[i].offsetWidth; });
+  const v=mini.querySelector('.ch-mini-view');
+  v.style.left=(tr.scrollLeft/W*100).toFixed(2)+'%'; v.style.width=(tr.clientWidth/W*100).toFixed(2)+'%';
+}
+/* « Ma route » : estompe ce qui ne concerne pas la ou les factions du joueur */
+function chronoMine(){
+  const host=document.getElementById('chrono'), btn=host.querySelector('.ch-mine-btn'); if(!btn) return;
+  const on=!host.classList.contains('mine'), mine=ME.factions||[];
+  host.classList.toggle('mine',on); btn.setAttribute('aria-pressed',on?'true':'false');
+  host.querySelectorAll('[data-fac]').forEach(n=>{ const f=(n.getAttribute('data-fac')||'').split(' ');
+    n.classList.toggle('is-mine', f.some(x=>mine.indexOf(x)>=0)); });
+}
+let CH_DRAG=null, CH_SWALLOW=false;
+function chronoDrag(tr){
+  if(!tr) return;
+  tr.addEventListener('pointerdown',e=>{ if(e.pointerType!=='mouse'||e.button!==0) return; CH_DRAG={tr,x:e.clientX,s:tr.scrollLeft,moved:false}; });
+  tr.addEventListener('click',e=>{ if(CH_SWALLOW){ e.stopPropagation(); e.preventDefault(); CH_SWALLOW=false; } }, true);
+  tr.addEventListener('dragstart',e=>e.preventDefault());
+}
+window.addEventListener('pointermove',e=>{ const d=CH_DRAG; if(!d) return; const dx=e.clientX-d.x;
+  if(!d.moved && Math.abs(dx)>5){ d.moved=true; d.tr.classList.add('dragging'); }
+  if(d.moved) d.tr.scrollLeft=d.s-dx; });
+window.addEventListener('pointerup',()=>{ const d=CH_DRAG; if(!d) return; CH_SWALLOW=d.moved; CH_DRAG=null; d.tr.classList.remove('dragging'); setTimeout(()=>{CH_SWALLOW=false;},0); });
+function chronoLieu(id){
+  const s=id&&sysFind(id); if(!s) return '';
+  const sub=[s.e.genre, s.parent?s.parent.nom:null].filter(Boolean).join(' · ');
+  return `<div class="ch-lieu">
+    ${s.img?`<img src="${s.img.src}" alt="${s.e.nom.replace(/"/g,'&quot;')}" loading="lazy" decoding="async">`:''}
+    <div class="ch-lieu-t"><span class="ch-k">${sub}</span><strong>${s.e.nom}</strong>${s.e.type?`<em>${s.e.type}</em>`:''}
+      <a class="ch-go" data-go="/systeme/${s.e.id}" href="#/systeme/${s.e.id}">Voir la fiche du Système →</a></div>
+  </div>`;
+}
+function chronoSelect(key, silent){
+  CHRONO_SEL=key;
+  document.querySelectorAll('#chrono [data-ch]').forEach(b=>b.setAttribute('aria-pressed', b.getAttribute('data-ch')===key?'true':'false'));
+  const pan=document.getElementById('chPanel'); if(!pan) return;
+  pan.removeAttribute('data-theme'); pan.classList.remove('ferme');
+  let html='', hdr='';
+  if(key.indexOf('br:')===0){
+    const b=BRANCHES.find(x=>'br:'+x.id===key); if(!b) return;
+    const f=FACTIONS.find(x=>x.id===b.faction);
+    if(f && b.etat!=='ferme') pan.setAttribute('data-theme', f.id);
+    hdr=b.etat==='ferme'?'Données expurgées':'Embranchement · '+chronoRef(b.part)+'/'+String(BRANCHES.filter(x=>x.part===b.part).indexOf(b)+1).padStart(2,'0');
+    if(b.etat==='ferme'){
+      pan.classList.add('ferme');
+      html=`<span class="eyebrow ch-ash">Embranchement · voie scellée</span><h3 class="ch-ash">Une porte s'est refermée</h3>
+        <p class="ch-recit">Un objectif n'a pas été atteint. Ce qu'il aurait ouvert restera inconnu.</p>`;
+    } else {
+      html=`<span class="eyebrow">Embranchement · ${f?f.name:''}</span><h3>${b.titre}</h3>
+        ${b.photo?`<figure class="ch-photo"><a href="${b.photo}" target="_blank" rel="noopener"><img src="${b.photo}" alt="Photo de la table : ${b.titre.replace(/"/g,'&quot;')}" loading="lazy"></a></figure>`:''}
+        ${chronoLieu(b.lieu)}
+        ${b.recit?`<p class="ch-recit">${b.recit}</p>`:''}
+        ${b.gain?`<div class="ch-gain"><span class="ch-k">Débloqué · avantage de jeu</span><p>${b.gain}</p></div>`
+          :`<div class="ch-gain cache"><span class="ch-k">Avantage de jeu</span><p>Réservé ${f?aFaction(f.name):"à l'armée concernée"}.</p></div>`}`;
+    }
+  } else {
+    const g=chronoGroups().find(x=>x.parts.some(p=>p.id===key)); if(!g) return;
+    const p=g.parts.find(x=>x.id===key);
+    if(p.faction) pan.setAttribute('data-theme', p.faction);
+    const pal=CHRONO_PALIERS[g.id]||'';
+    hdr=g.sealed?'Accès refusé · archive scellée':(p.faction?'Arrivée':'Engagement')+' · '+chronoRef(p.id);
+    if(g.sealed){
+      html=`<span class="eyebrow ch-dim">${g.num} · ${pal}</span><h3 class="ch-dim">${g.title}</h3>
+        <div class="seal locked">${LOCK} Données scellées</div><p class="ch-recit">${g.teaser||''}</p>`;
+    } else {
+      const f=p.faction&&FACTIONS.find(x=>x.id===p.faction);
+      const eb=[g.num, p.faction?(f?f.name:''):p.label].filter(Boolean).join(' · ');
+      const titre=p.titre||(p.etat==='a-venir'?'À venir':p.label);
+      let res='';
+      if(p.camps){
+        const w=facByName(p.vainqueur);
+        res=`<p class="ch-vs no-xref">${p.camps.join(' <span class="vs">contre</span> ')}</p>
+          <p class="ch-win">${p.vainqueur==='Match nul'?'<span class="bdraw">Match nul</span>':`<span${w?` data-theme="${w.id}"`:''} class="win">Victoire · ${p.vainqueur}</span>`}</p>`;
+      }
+      const data=[p.date?['Date',p.date]:null, ['Palier',pal||'—'], ['Statut',{jouee:'Consigné','en-cours':'En cours','a-venir':'En attente'}[p.etat]||'—']].filter(Boolean);
+      html=`<span class="eyebrow">${eb}</span><h3>${titre}</h3>
+        <dl class="ch-data">${data.map(([k,v])=>`<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
+        ${chronoLieu(p.lieu)}${res}
+        ${p.resume?`<p class="ch-recit">${p.resume}</p>`:''}
+        ${p.etat==='a-venir'&&!p.lieu?'<p class="ch-recit">Le lieu et les forces en présence seront révélés à l\'annonce de la partie.</p>':''}`;
+      const br=BRANCHES.filter(b=>b.part===p.id);
+      if(br.length) html+=`<p class="note">${br.length>1?br.length+' embranchements':'Un embranchement'} s'ouvre${br.length>1?'nt':''} depuis ce jalon.</p>`;
+    }
+  }
+  pan.innerHTML='<button type="button" class="ch-close" aria-label="Fermer le détail">×</button>'
+    +`<div class="ch-slate-h">+++ ${hdr} +++</div>`+html+'<div class="ch-slate-f">+++ Fin de transmission +++</div>'
+    +'<span class="ch-corner tl" aria-hidden="true"></span><span class="ch-corner br" aria-hidden="true"></span>';
+  pan.hidden=false;
+  if(!silent) linkify(pan, CUR);
+}
+/* amène le jalon sélectionné au centre de la frise (saut instantané, sans animation) */
+function chronoCenter(){
+  const tr=document.querySelector('#chrono .ch-track'), n=document.querySelector('#chrono [aria-pressed="true"]');
+  if(!tr||!n||!tr.clientWidth) return;
+  chronoLine();
+  const x=n.getBoundingClientRect().left-tr.getBoundingClientRect().left+tr.scrollLeft;
+  tr.scrollLeft=Math.max(0, x-tr.clientWidth*0.4+n.offsetWidth/2);
+}
+document.addEventListener('click',e=>{
+  if(e.target.closest('#chrono .ch-close')){ e.preventDefault(); document.getElementById('chPanel').hidden=true; return; }
+  if(e.target.closest('#chrono .ch-mine-btn')){ e.preventDefault(); chronoMine(); return; }
+  const mi=e.target.closest('#chrono [data-mini]');
+  if(mi){ e.preventDefault(); const tr=document.querySelector('#chrono .ch-track'), acts=[...document.querySelectorAll('#chrono .ch-act')];
+    const idx=[...document.querySelectorAll('#chrono [data-mini]')].indexOf(mi); if(acts[idx]) tr.scrollLeft=Math.max(0,acts[idx].offsetLeft-24); return; }
+  const ar=e.target.closest('#chrono .ch-arrow');
+  if(ar){ e.preventDefault(); const tr=document.querySelector('#chrono .ch-track');
+    tr.scrollLeft+= (+ar.getAttribute('data-dir'))*Math.round(tr.clientWidth*0.6); return; }
+  const n=e.target.closest('#chrono [data-ch]'); if(!n) return;
+  e.preventDefault(); chronoSelect(n.getAttribute('data-ch'));
+});
+
 const SCORES=(()=>{const m={};FACTIONS.forEach(f=>m[f.name]=0);BATTLES.forEach(x=>{if(m[x.winner]!==undefined)m[x.winner]++;});return m;})();
 function el(h){const t=document.createElement('template');t.innerHTML=h.trim();return t.content.firstChild;}
 const LOCK='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="5" y="11" width="14" height="9" rx="1"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
@@ -635,6 +964,7 @@ function go(route, opts){
   else if(p[0]==='systeme'){ viewId='v-systeme'; active='/systeme'; if(p[1]) anchor='ancre-'+p[1]; }
   else { const base='/'+(p[0]||''); viewId=VIEWS[base]||'v-accueil'; active=VIEWS[base]?base:'/'; }
   show(viewId); setActive(active);
+  if(viewId==='v-actes') chronoCenter();
   const fac = (p[0]==='factions' && p[1] && FACTIONS.some(f=>f.id===p[1])) ? p[1] : 'hub';
   document.body.setAttribute('data-theme', fac);   // un thème de couleur par page (voir style.css)
   linkify(document.getElementById(viewId), route);
@@ -804,4 +1134,4 @@ document.addEventListener('click',e=>{
   if(t.tagName==='A' && t.getAttribute('href') && (e.ctrlKey||e.metaKey||e.shiftKey)) return;
   e.preventDefault();navigate(t.getAttribute('data-go'));
 });
-renderSysteme();renderFactions();renderActs();renderBattles();go(CUR);initAuth();
+renderSysteme();renderFactions();renderActs();renderChrono();renderBattles();go(CUR);initAuth();
