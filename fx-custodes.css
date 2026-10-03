@@ -6,7 +6,7 @@
    ============================================================ */
 
 /* couches d'effets */
-#fxbg{position:fixed; inset:0; z-index:0; pointer-events:none; display:block}
+#fxbg{position:fixed; inset:0; width:100%; height:100%; z-index:0; pointer-events:none; display:block}
 #fxburst{position:fixed; inset:0; z-index:30; pointer-events:none}
 #fxflash{position:fixed; inset:0; z-index:29; pointer-events:none; background:var(--accent); opacity:0}
 .fxring{position:fixed; z-index:31; width:24px; height:24px; margin:-12px 0 0 -12px; border:1px solid var(--accent-bright); border-radius:50%; pointer-events:none}
@@ -17,7 +17,10 @@
 #fxdstage{position:absolute; left:0; top:0; z-index:5; pointer-events:none; overflow:visible}
 
 /* fond : marge pour la parallaxe */
-body.fx-custodes .fond{inset:-5% -2%}
+body.fx-custodes .fond{inset:-5% -2%; will-change:transform}
+/* le flou d'arrière-plan de l'en-tête se recalcule à chaque image quand le fond bouge :
+   on le remplace par un fond presque opaque, visuellement équivalent */
+body.fx-custodes header.bar{-webkit-backdrop-filter:none; backdrop-filter:none; background:color-mix(in srgb,var(--ink) 96%,transparent)}
 
 /* tracker */
 body.fx-custodes .hrow{position:relative}

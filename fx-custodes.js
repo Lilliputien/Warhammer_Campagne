@@ -32,6 +32,11 @@
   const osReduce = window.matchMedia("(prefers-reduced-motion: reduce)");
   const anim = () => !osReduce.matches;
   const canHover = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  /* Mode allégé : petits appareils, peu de cœurs, ou fluidité mesurée trop basse
+     (voir bgLoop). Le fond animé devient une image fixe et la parallaxe à la
+     souris est coupée ; tout le reste est conservé. Mémorisé pour la session. */
+  let LIGHT = (navigator.hardwareConcurrency || 8) <= 4 || window.matchMedia("(max-width: 760px)").matches;
+  try { if (sessionStorage.getItem("cytfx-light") === "1") LIGHT = true; } catch(e){}
 
   /* ---------- couches ---------- */
   let MAIN, VEIL, FST, DST, BC, bx, FLASH;
@@ -458,16 +463,28 @@
     if (HAS.st) tws.push(gsap.to(".fond", { yPercent: -4, ease: "none", scrollTrigger: { trigger: document.body, start: "top top", end: "bottom bottom", scrub: 0.8 } }));
     const bar = $(".accentbar", ROOT);
     if (bar) tws.push(gsap.to(bar, { scaleX: 1.6, transformOrigin: "50% 50%", duration: 4.5, ease: "sine.inOut", yoyo: true, repeat: -1, delay: 2 }));
-    const qx = gsap.quickTo(".fond", "x", { duration: 1.4, ease: "power3.out" });
-    const mv = e => qx((e.clientX / innerWidth - 0.5) * -18);
-    const hov = e => { const row = e.target.closest && e.target.closest(".hrow.track"); if (!row || !ROOT.contains(row)) return; const r = row.getBoundingClientRect(); row.style.setProperty("--mx", (e.clientX - r.left) + "px"); };
-    const mag = e => $$(".tbtn", ROOT).forEach(b => {
-      const c = vrect(b), dx = e.clientX - c.cx, dy = e.clientY - c.cy, dist = Math.hypot(dx, dy);
-      if (dist < 48) gsap.to(b, { x: dx * 0.3, y: dy * 0.3, duration: 0.35, ease: "power3.out", overwrite: "auto" });
-      else if (gsap.getProperty(b, "x") || gsap.getProperty(b, "y")) gsap.to(b, { x: 0, y: 0, duration: 0.7, ease: "elastic.out(1,0.4)", overwrite: "auto" });
-    });
-    window.addEventListener("pointermove", mv); document.addEventListener("pointermove", hov);
-    if (canHover) document.addEventListener("pointermove", mag);
+    const qx = LIGHT ? null : gsap.quickTo(".fond", "x", { duration: 1.4, ease: "power3.out" });
+    // un seul calcul par image, quel que soit le nombre d'événements souris
+    let lastE = null, pend = 0, curRow = null;
+    const release = row => $$(".tbtn", row).forEach(b => { if (gsap.getProperty(b, "x") || gsap.getProperty(b, "y")) gsap.to(b, { x: 0, y: 0, duration: 0.7, ease: "elastic.out(1,0.4)", overwrite: "auto" }); });
+    const frame = () => {
+      pend = 0; const e = lastE; if (!e || !ROOT) return;
+      if (qx) qx((e.clientX / innerWidth - 0.5) * -18);
+      const row = e.target && e.target.closest ? e.target.closest(".hrow.track") : null;
+      if (curRow && curRow !== row && canHover) release(curRow);
+      curRow = row && ROOT.contains(row) ? row : null;
+      if (!curRow) return;
+      const r = curRow.getBoundingClientRect();
+      curRow.style.setProperty("--mx", (e.clientX - r.left) + "px");
+      if (!canHover) return;
+      $$(".tbtn", curRow).forEach(b => {
+        const c = vrect(b), dx = e.clientX - c.cx, dy = e.clientY - c.cy;
+        if (Math.hypot(dx, dy) < 48) gsap.to(b, { x: dx * 0.3, y: dy * 0.3, duration: 0.35, ease: "power3.out", overwrite: "auto" });
+        else if (gsap.getProperty(b, "x") || gsap.getProperty(b, "y")) gsap.to(b, { x: 0, y: 0, duration: 0.7, ease: "elastic.out(1,0.4)", overwrite: "auto" });
+      });
+    };
+    const mv = e => { lastE = e; if (!pend) pend = requestAnimationFrame(frame); };
+    window.addEventListener("pointermove", mv, { passive: true });
     const por = $(".leader .portrait", ROOT), cs = por ? $$("circle", por) : [];
     let sa, sb2;
     const enter = () => {
@@ -481,7 +498,7 @@
     living = () => {
       tws.forEach(t => { if (t.scrollTrigger) t.scrollTrigger.kill(); t.kill(); });
       triggers.forEach(t => t.kill());
-      window.removeEventListener("pointermove", mv); document.removeEventListener("pointermove", hov); document.removeEventListener("pointermove", mag);
+      window.removeEventListener("pointermove", mv); if (pend) cancelAnimationFrame(pend);
       if (por) { por.removeEventListener("pointerenter", enter); por.removeEventListener("pointerleave", leave); }
       if (sa) sa.kill(); if (sb2) sb2.kill();
       gsap.killTweensOf(".fond");
@@ -490,7 +507,8 @@
   }
 
   /* ---------- fond : constellation et géométrie sacrée ---------- */
-  const BG = { cv: null, ctx: null, parts: [], raf: 0, t: 0, last: 0, alpha: 1 };
+  const BG = { cv: null, ctx: null, parts: [], raf: 0, t: 0, last: 0, alpha: 1, prev: 0, d: [] };
+  const BGS = 0.5;   // le fond est dessiné à demi-résolution puis agrandi : 4 fois moins de pixels
   function colFade(x, W){
     if (W < 760) return 0.45;
     const cx = W / 2, L = cx - 560, R = cx + 260, soft = 120;
@@ -499,49 +517,60 @@
   }
   function bgSize(){
     if (!BG.cv) return;
-    BG.cv.width = innerWidth; BG.cv.height = innerHeight;
-    const area = Math.max(0.5, (innerWidth * innerHeight) / (1440 * 900)), n = Math.round(95 * area);
+    BG.cv.width = Math.round(innerWidth * BGS); BG.cv.height = Math.round(innerHeight * BGS);
+    BG.ctx.setTransform(BGS, 0, 0, BGS, 0, 0);
+    const area = Math.max(0.5, (innerWidth * innerHeight) / (1440 * 900)), n = Math.round(70 * area);
     BG.parts = [];
     for (let i = 0; i < n; i++) BG.parts.push({ x: Math.random() * innerWidth, y: Math.random() * innerHeight, vx: (Math.random() - 0.5) * 0.34, vy: (Math.random() - 0.5) * 0.34 });
   }
   function bgDraw(){
-    const c = BG.ctx, W = BG.cv.width, H = BG.cv.height, a = BG.alpha;
+    const c = BG.ctx, W = innerWidth, H = innerHeight, a = BG.alpha;
     c.clearRect(0, 0, W, H);
     const cx = W * 0.8, cy = H * 0.36, rot = BG.t * 0.0011;
-    c.save(); c.translate(cx, cy); c.lineWidth = 1; c.strokeStyle = `rgba(221,182,79,${0.12 * a})`;
+    c.save(); c.translate(cx, cy); c.lineWidth = 1.8; c.strokeStyle = `rgba(221,182,79,${0.15 * a})`;
     [[120, 0.6, [4, 10]], [210, -1.4, [2, 7]], [320, 0.35, [10, 14]], [450, -0.2, [1, 12]]].forEach(r => {
       c.save(); c.rotate(rot * r[1]); c.setLineDash(r[2]); c.beginPath(); c.arc(0, 0, r[0], 0, Math.PI * 2); c.stroke(); c.restore();
     });
-    c.setLineDash([]); c.rotate(rot * 0.5); c.strokeStyle = `rgba(221,182,79,${0.1 * a})`;
+    c.setLineDash([]); c.rotate(rot * 0.5); c.strokeStyle = `rgba(221,182,79,${0.13 * a})`;
     for (let k = 0; k < 2; k++) { c.rotate(Math.PI / 4); c.strokeRect(-150, -150, 300, 300); }
     c.restore();
     const md = 150, ps = BG.parts;
-    c.lineWidth = 0.7;
+    c.lineWidth = 1.4;   // demi-résolution : traits épaissis pour garder la même présence
     for (let i = 0; i < ps.length; i++) {
       const p = ps[i]; p.x += p.vx; p.y += p.vy;
       if (p.x < 0 || p.x > W) p.vx *= -1; if (p.y < 0 || p.y > H) p.vy *= -1;
       for (let j = i + 1; j < ps.length; j++) {
         const q = ps[j], dx = p.x - q.x, dy = p.y - q.y; if (Math.abs(dx) > md || Math.abs(dy) > md) continue;
         const d = Math.sqrt(dx * dx + dy * dy);
-        if (d < md) { c.strokeStyle = `rgba(221,182,79,${(1 - d / md) * 0.27 * colFade((p.x + q.x) / 2, W) * a})`; c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(q.x, q.y); c.stroke(); }
+        if (d < md) { c.strokeStyle = `rgba(221,182,79,${(1 - d / md) * 0.34 * colFade((p.x + q.x) / 2, W) * a})`; c.beginPath(); c.moveTo(p.x, p.y); c.lineTo(q.x, q.y); c.stroke(); }
       }
-      c.fillStyle = `rgba(242,215,136,${0.59 * colFade(p.x, W) * a})`; c.beginPath(); c.arc(p.x, p.y, 1.1, 0, Math.PI * 2); c.fill();
+      c.fillStyle = `rgba(242,215,136,${0.7 * colFade(p.x, W) * a})`; c.beginPath(); c.arc(p.x, p.y, 1.6, 0, Math.PI * 2); c.fill();
     }
   }
   function bgLoop(ts){
     BG.raf = requestAnimationFrame(bgLoop);
-    if (ts - BG.last < 22) return; BG.last = ts;
+    // surveillance : si l'appareil n'arrive pas à suivre, on passe en mode allégé
+    if (BG.prev) { BG.d.push(ts - BG.prev); if (BG.d.length >= 120) { const avg = BG.d.reduce((x, y) => x + y, 0) / BG.d.length; BG.d = []; if (avg > 24) { goLight(); return; } } }
+    BG.prev = ts;
+    if (ts - BG.last < 32) return; BG.last = ts;   // ~30 images par seconde suffisent pour un fond lent
+    if (CROWNED.tl || document.documentElement.classList.contains("fx-scrolling")) return;
     BG.t++; bgDraw();
   }
-  function bgVis(){ if (!BG.cv) return; if (document.hidden) { cancelAnimationFrame(BG.raf); BG.raf = 0; } else if (anim() && !BG.raf) BG.raf = requestAnimationFrame(bgLoop); }
+  function goLight(){
+    LIGHT = true;
+    try { sessionStorage.setItem("cytfx-light", "1"); } catch(e){}
+    cancelAnimationFrame(BG.raf); BG.raf = 0; BG.alpha = 1; if (BG.ctx) bgDraw();
+    if (active) { gsap.killTweensOf(".fond", "x"); gsap.set(".fond", { x: 0 }); setupLiving(false); }
+  }
+  function bgVis(){ if (!BG.cv) return; if (document.hidden) { cancelAnimationFrame(BG.raf); BG.raf = 0; BG.prev = 0; BG.d = []; } else if (anim() && !LIGHT && !BG.raf) BG.raf = requestAnimationFrame(bgLoop); }
   function bgStart(){
     if (BG.cv) return;
     BG.cv = document.createElement("canvas"); BG.cv.id = "fxbg"; BG.cv.setAttribute("aria-hidden", "true");
     const fond = $(".fond"); if (fond && fond.nextSibling) fond.parentNode.insertBefore(BG.cv, fond.nextSibling); else document.body.prepend(BG.cv);
     BG.ctx = BG.cv.getContext("2d"); bgSize();
     window.addEventListener("resize", bgSize); document.addEventListener("visibilitychange", bgVis);
-    if (!anim()) { BG.alpha = 1; bgDraw(); return; }
-    BG.alpha = 0; gsap.to(BG, { alpha: 1, duration: 1.8, ease: "power1.out" });
+    if (!anim() || LIGHT) { BG.alpha = 1; bgDraw(); return; }
+    BG.alpha = 0; BG.prev = 0; BG.d = []; gsap.to(BG, { alpha: 1, duration: 1.8, ease: "power1.out" });
     BG.raf = requestAnimationFrame(bgLoop);
   }
   function bgStop(){
@@ -550,6 +579,14 @@
     window.removeEventListener("resize", bgSize); document.removeEventListener("visibilitychange", bgVis);
     BG.cv.remove(); BG.cv = null; BG.ctx = null; BG.parts = [];
   }
+
+  /* ---------- pendant le défilement, le fond se fige (le défilement reste fluide) ---------- */
+  let scT = 0;
+  window.addEventListener("scroll", () => {
+    if (!active) return;
+    document.documentElement.classList.add("fx-scrolling");
+    clearTimeout(scT); scT = setTimeout(() => document.documentElement.classList.remove("fx-scrolling"), 160);
+  }, { passive: true });
 
   /* ---------- redimensionnement : redessiner l'encadré ---------- */
   let rz = 0;
