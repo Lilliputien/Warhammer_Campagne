@@ -136,9 +136,13 @@ function adjustEntry(row,delta){
   ME.progress[fac]=ME.progress[fac]||{};
   const old=ME.progress[fac][key]||0;
   let c=old+delta; if(c<0)c=0;
+  const crownEl=document.querySelector('.hrow.crown[data-fac="'+fac+'"]');
+  const wasU=row.classList.contains('unlocked'), wasC=!!(crownEl&&crownEl.classList.contains('unlocked'));
   ME.progress[fac][key]=c;
   paintEntry(row);
   updateCrown(fac); buildRecap(fac); saveProgress(fac);
+  // effets de faction (fx-custodes.js) : ne fait rien si le module est absent
+  if(window.CytFX) window.CytFX.onAdjust(row, delta, wasU, row.classList.contains('unlocked'), wasC, !!(crownEl&&crownEl.classList.contains('unlocked')), old, c);
 }
 function initAuth(){
   if(!window.supabase){ gateMsg("Service indisponible (connexion internet ?)."); return; }
@@ -979,6 +983,7 @@ function go(route, opts){
   else if(opts.keepScroll) {}
   else if(target){ const bar=document.querySelector('header.bar'); jump(target.getBoundingClientRect().top + window.scrollY - (bar?bar.offsetHeight:70) - 14); }
   else jump(0);
+  if(window.CytFX) window.CytFX.onView(fac, viewId, opts);   // effets de faction (fx-custodes.js)
 }
 /* navigation déclenchée par un clic : mémorise la position de lecture actuelle */
 function navigate(route){
