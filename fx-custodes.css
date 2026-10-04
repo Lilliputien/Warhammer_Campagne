@@ -52,4 +52,23 @@ body.fx-custodes .hrow.crown > *:not(.fx-deco){position:relative; z-index:1}
 .htitre .fx-lslot svg{position:absolute; left:0; top:50%; width:52px; height:52px; margin-top:-26px; overflow:visible}
 .htitre .fx-L{display:inline-block; overflow:hidden; vertical-align:bottom}
 body.fx-custodes .leader .portrait svg{overflow:visible}
-@media (max-width:560px){ .fx-deco svg.fx-cachet{right:-8px; bottom:-30px; width:62px; height:62px} }
+/* sceau de la cérémonie : conteneur déplacé par la carte graphique */
+.fx-sealbox{position:fixed; z-index:6; pointer-events:none; will-change:transform}
+.fx-sealbox svg{display:block; width:100%; height:100%; overflow:visible}
+/* encadré d'orfèvrerie : suit toujours la taille réelle de la ligne */
+.fx-frame{position:absolute; inset:-6px; pointer-events:none}
+.fx-deco svg.fx-fc{position:absolute; width:36px; height:36px; overflow:visible}
+.fx-deco svg.fx-fc.tl{left:0; top:0}
+.fx-deco svg.fx-fc.tr{left:auto; right:0; top:0; transform:scaleX(-1)}
+.fx-deco svg.fx-fc.bl{left:0; top:auto; bottom:0; transform:scaleY(-1)}
+.fx-deco svg.fx-fc.br{left:auto; top:auto; right:0; bottom:0; transform:scale(-1,-1)}
+.fx-fe{position:absolute; background:var(--accent); opacity:.8}
+.fx-fe.t{top:0; left:36px; right:36px; height:1px}
+.fx-fe.b{bottom:0; left:36px; right:36px; height:1px}
+.fx-fe.l{left:0; top:36px; bottom:36px; width:1px}
+.fx-fe.r{right:0; top:36px; bottom:36px; width:1px}
+/* téléphone : on libère de la place sous le texte pour le cachet */
+@media (max-width:560px){
+  body.fx-custodes .hrow.crown.fx-crowned{padding-bottom:58px}
+  .fx-deco svg.fx-cachet{right:-6px; bottom:-20px; width:66px; height:66px}
+}

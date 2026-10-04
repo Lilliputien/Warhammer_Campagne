@@ -53,7 +53,7 @@
     bx = BC.getContext("2d"); sizeBurst();
     window.addEventListener("resize", sizeBurst);
   }
-  function sizeBurst(){ const d = Math.min(2, window.devicePixelRatio || 1); BC.width = innerWidth * d; BC.height = innerHeight * d; BC.style.width = innerWidth + "px"; BC.style.height = innerHeight + "px"; bx.setTransform(d, 0, 0, d, 0, 0); }
+  function sizeBurst(){ const d = LIGHT ? 1 : Math.min(2, window.devicePixelRatio || 1); BC.width = innerWidth * d; BC.height = innerHeight * d; BC.style.width = innerWidth + "px"; BC.style.height = innerHeight + "px"; bx.setTransform(d, 0, 0, d, 0, 0); }
 
   /* ---------- outils : particules, anneaux, flash, secousse ---------- */
   let P = [], braf = 0;
@@ -177,9 +177,11 @@
     DST.setAttribute("width", w); DST.setAttribute("height", h); DST.setAttribute("viewBox", `0 0 ${w} ${h}`);
     DST.style.width = w + "px"; DST.style.height = h + "px";
   }
+  let SEALBOX = null;
   function cleanStage(){
     if (!FST) return;
     FST.innerHTML = ""; DST.innerHTML = "";
+    if (SEALBOX) { SEALBOX.remove(); SEALBOX = null; }
     gsap.killTweensOf(VEIL); gsap.set(VEIL, { opacity: 0 });
     $$(".onstage").forEach(e => e.classList.remove("onstage"));
     CROWNED.splits.forEach(s => s.revert()); CROWNED.splits = [];
@@ -189,6 +191,7 @@
     CROWNED.persist.forEach(t => t.kill()); CROWNED.persist = [];
     if (!CR || !DECO) return;
     DECO.innerHTML = "";
+    CR.classList.remove("fx-crowned");
     const slot = $(".fx-lslot", CR), L = $(".fx-L", CR), hf = $(".hfait", CR), hr = $(".hregle", CR);
     gsap.killTweensOf([slot, L, CR, hf, hr].filter(Boolean));
     if (slot) slot.innerHTML = "";
@@ -203,7 +206,7 @@
     const st = $(".crownstate", CR);
     if (!st || !HAS.split) return;
     const sp = SplitText.create(st, { type: "chars" }); CROWNED.splits.push(sp);
-    gsap.from(sp.chars, { opacity: 0, filter: "blur(6px)", duration: 0.5, stagger: 0.018, ease: "power2.out", delay: (delay || 0) + 0.15 });
+    gsap.from(sp.chars, { opacity: 0, y: 4, duration: 0.45, stagger: 0.016, ease: "power2.out", delay: (delay || 0) + 0.15 });
   }
   function focusCrown(tl, frac){
     if (!HAS.sto) return;
@@ -214,35 +217,49 @@
     }
   }
 
-  /* sceau, cachet, encadré, lettrine */
+  /* sceau, cachet, encadré, lettrine
+     k = pixels par unité du sceau : les épaisseurs sont exprimées en pixels écran.
+     Le sceau de la cérémonie est un SVG fixe dans un conteneur HTML que l'on
+     déplace, tourne et réduit en CSS : la carte graphique s'en charge sans
+     redessiner le SVG (c'était la cause du ralentissement). */
   function buildSeal(parent, opts){
     opts = opts || {};
+    const k = opts.k || 1, sw = px => (px / k).toFixed(3);
     const g = sv("g", {}, parent), els = {};
-    const st = { fill: "none", stroke: BRIGHT, "vector-effect": "non-scaling-stroke" };
+    const st = opts.nss ? { fill: "none", stroke: BRIGHT, "vector-effect": "non-scaling-stroke" } : { fill: "none", stroke: BRIGHT };
+    const W = px => opts.nss ? px : sw(px);
     els.disc = sv("circle", { r: 100, fill: INK, opacity: opts.disc ? 0.94 : 0 }, g);
-    els.c1 = sv("circle", Object.assign({ r: 98, "stroke-width": 1.2 }, st), g);
-    els.c2 = sv("circle", Object.assign({ r: 92, "stroke-width": 0.6, "stroke-dasharray": "1 4", opacity: 0.7 }, st), g);
-    els.ticks = [];
+    els.c1 = sv("circle", Object.assign({ r: 98, "stroke-width": W(1.2) }, st), g);
+    els.c2 = sv("circle", Object.assign({ r: 92, "stroke-width": W(0.6), "stroke-dasharray": "1 4", opacity: 0.7 }, st), g);
+    // les 72 graduations forment un seul tracé : un seul élément à animer au lieu de 72
+    let dS = "", dL = "";
     for (let i = 0; i < 72; i++) {
       const a = i * 5 * Math.PI / 180, long = i % 9 === 0, r1 = long ? 76 : 84;
-      els.ticks.push(sv("line", Object.assign({ x1: (Math.cos(a) * r1).toFixed(2), y1: (Math.sin(a) * r1).toFixed(2), x2: (Math.cos(a) * 89).toFixed(2), y2: (Math.sin(a) * 89).toFixed(2), "stroke-width": long ? 1.1 : 0.5 }, st), g));
+      const seg = `M${(Math.cos(a) * r1).toFixed(2)} ${(Math.sin(a) * r1).toFixed(2)}L${(Math.cos(a) * 89).toFixed(2)} ${(Math.sin(a) * 89).toFixed(2)}`;
+      if (long) dL += seg; else dS += seg;
     }
-    const defs = sv("defs", {}, g), pid = nid("ins"), mid = nid("msk");
+    els.ticks = sv("path", Object.assign({ d: dS, "stroke-width": W(0.5) }, st), g);
+    els.ticksL = sv("path", Object.assign({ d: dL, "stroke-width": W(1.1) }, st), g);
+    const defs = sv("defs", {}, g), pid = nid("ins");
     sv("path", { id: pid, d: "M -70 0 A 70 70 0 1 1 70 0 A 70 70 0 1 1 -70 0" }, defs);
-    const mask = sv("mask", { id: mid, maskUnits: "userSpaceOnUse", x: -110, y: -110, width: 220, height: 220 }, defs);
-    els.mc = sv("circle", { r: 70, fill: "none", stroke: "#fff", "stroke-width": 18, transform: "rotate(180)" }, mask);
-    const txt = sv("text", { fill: BRIGHT, "font-family": "Marcellus, Georgia, serif", "font-size": 8, "letter-spacing": 2, mask: `url(#${mid})` }, g);
-    const tp = sv("textPath", { href: "#" + pid, textLength: 436, lengthAdjust: "spacing" }, txt);
+    const txtAttrs = { fill: BRIGHT, "font-family": "Marcellus, Georgia, serif", "font-size": 8, "letter-spacing": 2 };
+    if (opts.mask) {
+      const mid = nid("msk");
+      const mask = sv("mask", { id: mid, maskUnits: "userSpaceOnUse", x: -110, y: -110, width: 220, height: 220 }, defs);
+      els.mc = sv("circle", { r: 70, fill: "none", stroke: "#fff", "stroke-width": 18, transform: "rotate(180)" }, mask);
+      txtAttrs.mask = `url(#${mid})`;
+    }
+    els.txt = sv("text", txtAttrs, g);
+    const tp = sv("textPath", { href: "#" + pid, textLength: 436, lengthAdjust: "spacing" }, els.txt);
     tp.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", "#" + pid);
     tp.textContent = "IN NOMINE IMPERATORIS ✦ VERITAS ✦ FIDES ✦ CUSTODES ✦ ";
-    if (!opts.full) els.mc.setAttribute("stroke-dasharray", "0 999");
-    els.c3 = sv("circle", Object.assign({ r: 60, "stroke-width": 1 }, st), g);
-    const sq = a0 => [0, 1, 2, 3].map(k => { const a = (a0 + k * 90) * Math.PI / 180; return (Math.cos(a) * 58).toFixed(2) + "," + (Math.sin(a) * 58).toFixed(2); }).join(" ");
-    els.sq1 = sv("polygon", Object.assign({ points: sq(45), "stroke-width": 0.9 }, st), g);
-    els.sq2 = sv("polygon", Object.assign({ points: sq(0), "stroke-width": 0.9 }, st), g);
-    els.star = sv("path", Object.assign({ d: STAR, transform: "translate(-28.8,-28.8) scale(2.4)", "stroke-width": 1.2 }, st), g);
+    els.c3 = sv("circle", Object.assign({ r: 60, "stroke-width": W(1) }, st), g);
+    const sq = a0 => [0, 1, 2, 3].map(j => { const a = (a0 + j * 90) * Math.PI / 180; return (Math.cos(a) * 58).toFixed(2) + "," + (Math.sin(a) * 58).toFixed(2); }).join(" ");
+    els.sq1 = sv("polygon", Object.assign({ points: sq(45), "stroke-width": W(0.9) }, st), g);
+    els.sq2 = sv("polygon", Object.assign({ points: sq(0), "stroke-width": W(0.9) }, st), g);
+    els.star = sv("path", Object.assign({ d: STAR, transform: "translate(-28.8,-28.8) scale(2.4)", "stroke-width": opts.nss ? 1.2 : (1.2 / k / 2.4).toFixed(3) }, st), g);
     els.dot = sv("circle", { r: 3.2, fill: BRIGHT }, g);
-    els.strokes = [els.c1, els.c3, els.sq1, els.sq2, els.star].concat(els.ticks);
+    els.strokes = [els.c1, els.c3, els.sq1, els.sq2, els.star, els.ticks, els.ticksL];
     return { g, els };
   }
   function cachetEl(){
@@ -252,23 +269,24 @@
       const cp = sv("clipPath", { id: cid }, sv("defs", {}, svg));
       sv("rect", { x: -110, y: side === "top" ? -110 : 0, width: 220, height: 110 }, cp);
       const hg = sv("g", { "clip-path": `url(#${cid})` }, svg);
-      buildSeal(sv("g", {}, hg), { disc: true, full: true });
+      buildSeal(sv("g", {}, hg), { disc: true, nss: true });
     });
     sv("path", { d: "M-104 2 L-60 -6 L-30 8 L-4 -4 L24 9 L52 -7 L78 5 L104 -2", fill: "none", stroke: PALE, "stroke-width": 1.4, "vector-effect": "non-scaling-stroke", opacity: 0 }, svg);
     const spin = sv("circle", { r: 102, fill: "none", stroke: GOLD, "stroke-width": 0.8, "stroke-dasharray": "2 7", "vector-effect": "non-scaling-stroke", opacity: 0.8 }, svg);
     return { svg, spin };
   }
+  /* encadré d'orfèvrerie en HTML/CSS : il suit la taille réelle de la ligne,
+     même quand la lettrine ou le retour à la ligne la font grandir (téléphone) */
   function frameC(){
-    const w = CR.offsetWidth, h = CR.offsetHeight, o = 6;
-    const svg = sv("svg", { width: w, height: h, viewBox: `0 0 ${w} ${h}`, class: "fx-frame" }, DECO);
+    const box = document.createElement("div"); box.className = "fx-frame"; DECO.appendChild(box);
     const orn = "M0 36 V12 Q0 0 12 0 H36 M7 28 C7 14 14 7 28 7 M-5 -5 L0 0";
-    const corners = [[-o, -o, 1, 1], [w + o, -o, -1, 1], [-o, h + o, 1, -1], [w + o, h + o, -1, -1]].map(c => {
-      const g = sv("g", { transform: `translate(${c[0]} ${c[1]}) scale(${c[2]} ${c[3]})` }, svg);
-      return { p: sv("path", { d: orn, fill: "none", stroke: BRIGHT, "stroke-width": 1, "vector-effect": "non-scaling-stroke" }, g), dm: sv("polygon", { points: "-6,-6 -3,-9 0,-6 -3,-3", fill: BRIGHT }, g) };
+    const corners = ["tl", "tr", "bl", "br"].map(pos => {
+      const s = sv("svg", { class: "fx-fc " + pos, viewBox: "0 0 36 36" }, box);
+      return { p: sv("path", { d: orn, fill: "none", stroke: BRIGHT, "stroke-width": 1 }, s), dm: sv("polygon", { points: "-6,-6 -3,-9 0,-6 -3,-3", fill: BRIGHT }, s) };
     });
-    const edges = [[-o + 36, -o, w + o - 36, -o], [-o + 36, h + o, w + o - 36, h + o], [-o, -o + 36, -o, h + o - 36], [w + o, -o + 36, w + o, h + o - 36]]
-      .map(e => sv("line", { x1: e[0], y1: e[1], x2: e[2], y2: e[3], stroke: GOLD, "stroke-width": 0.8, opacity: 0.8 }, svg));
-    return { svg, corners, edges };
+    const mk = c => { const e = document.createElement("i"); e.className = "fx-fe " + c; box.appendChild(e); return e; };
+    const edgesH = [mk("t"), mk("b")], edgesV = [mk("l"), mk("r")];
+    return { box, corners, edgesH, edgesV };
   }
   function lettrine(){
     const slot = $(".fx-lslot", CR); if (!slot) return null;
@@ -284,9 +302,10 @@
   }
   function staticOn(){
     if (!CR || !DECO) return null;
+    CR.classList.add("fx-crowned");
     const f = frameC(), c = cachetEl(), l = lettrine();
     if (l) { gsap.set(l.slot, { width: 52, height: 52, marginRight: 12 }); gsap.set($(".fx-L", CR), { width: 0, opacity: 0 }); }
-    if (anim()) CROWNED.persist.push(gsap.to(c.spin, { rotation: 360, svgOrigin: "0 0", duration: 60, ease: "none", repeat: -1 }));
+    if (anim() && !LIGHT) CROWNED.persist.push(gsap.to(c.spin, { rotation: 360, svgOrigin: "0 0", duration: 60, ease: "none", repeat: -1 }));
     return { f, c, l };
   }
   function hideIllum(parts){
@@ -325,27 +344,33 @@
     focusCrown(tl, 0.55);
     tl.add(() => { CR.classList.add("onstage"); }, ">");
     tl.to(VEIL, { opacity: 1, duration: 0.8, ease: "power2.inOut" }, "<");
-    const R = Math.min(300, Math.max(130, Math.min(innerWidth * 0.8, innerHeight) * 0.36));
-    const outer = sv("g", {}, FST), inner = sv("g", {}, outer);
-    const seal = buildSeal(inner, {});
-    const sx = Math.min(innerWidth - R - 16, Math.max(R + 16, vrect(CR).cx));
-    gsap.set(outer, { x: sx, y: innerHeight / 2 });
-    gsap.set(inner, { scale: R / 100 * 0.9, rotation: -50, svgOrigin: "0 0" });
+    const R = Math.min(300, Math.max(120, Math.min(innerWidth * 0.84, innerHeight) * 0.36));
+    const k = R / 100, D = 208 * k;
+    const sx = Math.min(innerWidth - R - 12, Math.max(R + 12, vrect(CR).cx)), sy = innerHeight / 2;
+    SEALBOX = document.createElement("div"); SEALBOX.className = "fx-sealbox"; SEALBOX.setAttribute("aria-hidden", "true");
+    Object.assign(SEALBOX.style, { width: D + "px", height: D + "px", left: (sx - D / 2) + "px", top: (sy - D / 2) + "px" });
+    MAIN.appendChild(SEALBOX);
+    const svg = sv("svg", { viewBox: "-104 -104 208 208" }, SEALBOX);
+    const useMask = !LIGHT && HAS.draw;
+    const seal = buildSeal(svg, { k, mask: useMask });
+    gsap.set(SEALBOX, { scale: 0.9, rotation: -50, transformOrigin: "50% 50%" });
     if (HAS.draw) gsap.set(seal.els.strokes, { drawSVG: "0%" });
     gsap.set([seal.els.c2, seal.els.dot], { opacity: 0 });
+    if (!useMask) gsap.set(seal.els.txt, { opacity: 0 });
     const t0 = tl.duration() - 0.3;
     if (HAS.draw) {
       tl.to(seal.els.c1, { drawSVG: "100%", duration: 1.2, ease: "expo.inOut" }, t0)
-        .to(seal.els.ticks, { drawSVG: "100%", duration: 0.3, ease: "power2.out", stagger: { each: 0.011 } }, t0 + 0.35)
+        .to([seal.els.ticks, seal.els.ticksL], { drawSVG: "100%", duration: 0.9, ease: "power1.inOut" }, t0 + 0.35)
         .to([seal.els.sq1, seal.els.sq2], { drawSVG: "100%", duration: 1.1, ease: "power3.inOut", stagger: 0.18 }, t0 + 0.7)
-        .fromTo(seal.els.mc, { drawSVG: "0%" }, { drawSVG: "100%", duration: 1.4, ease: "power2.inOut" }, t0 + 0.8)
         .to([seal.els.c3, seal.els.star], { drawSVG: "100%", duration: 0.9, ease: "power2.inOut", stagger: 0.15 }, t0 + 1.1);
+      if (useMask) tl.fromTo(seal.els.mc, { drawSVG: "0%" }, { drawSVG: "100%", duration: 1.4, ease: "power2.inOut" }, t0 + 0.8);
     }
+    if (!useMask) tl.to(seal.els.txt, { opacity: 1, duration: 1.2, ease: "power1.inOut" }, t0 + 0.8);
     tl.to(seal.els.c2, { opacity: 0.7, duration: 0.8 }, t0 + 0.4)
       .fromTo(seal.els.dot, { opacity: 0, scale: 0, svgOrigin: "0 0" }, { opacity: 1, scale: 1, svgOrigin: "0 0", duration: 0.6, ease: "back.out(3)" }, t0 + 1.7)
-      .to(inner, { rotation: 0, scale: R / 100, svgOrigin: "0 0", duration: 2.4, ease: "expo.out" }, t0)
+      .to(SEALBOX, { rotation: 0, scale: 1, duration: 2.4, ease: "expo.out" }, t0)
       .to(seal.els.disc, { opacity: 0.94, duration: 0.5 }, t0 + 2.1);
-    tl.add(() => { ring(sx, innerHeight / 2, { scale: R / 5, dur: 1.1, color: BRIGHT, op: 0.5 }); }, t0 + 2.2);
+    tl.add(() => { ring(sx, sy, { scale: R / 5, dur: 1.1, color: BRIGHT, op: 0.5 }); }, t0 + 2.2);
     let parts = null;
     tl.add(() => {
       parts = staticOn();
@@ -353,11 +378,10 @@
       hideIllum(parts);
       gsap.to([$(".hfait", CR), $(".hregle", CR)].filter(Boolean), { opacity: 0, duration: 0.3, ease: "power1.in" });
       parts.f.corners.forEach(c => { gsap.set(c.p, { drawSVG: "0%" }); gsap.set(c.dm, { scale: 0, transformOrigin: "50% 50%" }); });
-      gsap.set(parts.f.edges, { drawSVG: "50% 50%" });
-      const tr = vrect(parts.c.svg), ts = tr.w / 208;
+      gsap.set(parts.f.edgesH, { scaleX: 0 }); gsap.set(parts.f.edgesV, { scaleY: 0 });
+      const tr = vrect(parts.c.svg);
       sub(gsap.timeline())
-        .to(outer, { x: tr.cx, y: tr.cy, duration: 0.62, ease: "power4.in" }, 0)
-        .to(inner, { scale: ts, rotation: 90, svgOrigin: "0 0", duration: 0.62, ease: "power4.in" }, 0)
+        .to(SEALBOX, { x: tr.cx - sx, y: tr.cy - sy, scale: tr.w / D, rotation: 90, duration: 0.62, ease: "power4.in" }, 0)
         .to(VEIL, { opacity: 0, duration: 1.2, ease: "power2.inOut" }, 0.45)
         .add(() => impact(parts, tr), 0.62);
     }, t0 + 2.5);
@@ -365,18 +389,21 @@
     return tl;
   }
   function impact(parts, tr){
-    FST.innerHTML = "";
+    if (SEALBOX) { SEALBOX.remove(); SEALBOX = null; }
     gsap.set(parts.c.svg, { opacity: 1 });
     gsap.delayedCall(1.3, () => CR && CR.classList.remove("onstage"));
     commit(true);
-    ring(tr.cx, tr.cy, { scale: 5, dur: 0.7, color: PALE }); ring(tr.cx, tr.cy, { scale: 12, dur: 1.2, color: GOLD, op: 0.7 }); ring(tr.cx, tr.cy, { scale: 20, dur: 1.6, delay: 0.1, color: DEEP, op: 0.5 });
-    burst(tr.cx, tr.cy, { n: 26, colors: [GOLD, BRIGHT, PALE], speed: 3.4, g: 0.02, shape: "diamond", size: 2.2, life: 80, drag: 0.95 });
+    const q = LIGHT ? 0.5 : 1;
+    ring(tr.cx, tr.cy, { scale: 5, dur: 0.7, color: PALE }); ring(tr.cx, tr.cy, { scale: 12, dur: 1.2, color: GOLD, op: 0.7 });
+    if (!LIGHT) ring(tr.cx, tr.cy, { scale: 20, dur: 1.6, delay: 0.1, color: DEEP, op: 0.5 });
+    burst(tr.cx, tr.cy, { n: Math.round(26 * q), colors: [GOLD, BRIGHT, PALE], speed: 3.4, g: 0.02, shape: "diamond", size: 2.2, life: 80, drag: 0.95 });
     flash(0.07, 0.9, BRIGHT);
     gsap.fromTo(CR, { y: 0 }, { keyframes: [{ y: 5, duration: 0.07, ease: "power2.out" }, { y: 0, duration: 0.9, ease: "elastic.out(1,0.35)" }], clearProps: "y" });
     gsap.fromTo(parts.c.svg, { scale: 1.12 }, { scale: 1, duration: 0.8, ease: "elastic.out(1,0.4)", transformOrigin: "50% 50%" });
     sub(gsap.timeline({ delay: 0.05 }))
       .to(parts.f.corners.map(c => c.p), { drawSVG: "100%", duration: 1.2, ease: "power2.inOut", stagger: 0.12 }, 0)
-      .to(parts.f.edges, { drawSVG: "0% 100%", duration: 1.2, ease: "expo.out", stagger: 0.08 }, 0.35)
+      .to(parts.f.edgesH, { scaleX: 1, duration: 1.2, ease: "expo.out", stagger: 0.08 }, 0.35)
+      .to(parts.f.edgesV, { scaleY: 1, duration: 1.2, ease: "expo.out", stagger: 0.08 }, 0.45)
       .to(parts.f.corners.map(c => c.dm), { scale: 1, duration: 0.5, ease: "back.out(3)", stagger: 0.1 }, 0.9);
     writeState(0.2);
     illuminate(parts, 0.35);
@@ -388,13 +415,14 @@
     const halves = $$(":scope > g", c), crack = $$(":scope > path", c)[0], r = vrect(c);
     tl.set(crack, { opacity: 1, drawSVG: "0%" })
       .to(crack, { drawSVG: "100%", duration: 0.28, ease: "power2.in" })
-      .add(() => { shake(c, 3, 0.25); burst(r.cx, r.cy, { n: 18, colors: [GOLD, DEEP, BRIGHT], speed: 2.4, g: 0.14, shape: "diamond", size: 1.8, life: 55 }); })
+      .add(() => { shake(c, 3, 0.25); burst(r.cx, r.cy, { n: LIGHT ? 10 : 18, colors: [GOLD, DEEP, BRIGHT], speed: 2.4, g: 0.14, shape: "diamond", size: 1.8, life: 55 }); })
       .to(halves[0], { y: -14, x: -6, rotation: -14, svgOrigin: "0 0", opacity: 0, duration: 0.8, ease: "power3.in" }, "+=0.12")
       .to(halves[1], { y: 22, x: 8, rotation: 18, svgOrigin: "0 0", opacity: 0, duration: 0.9, ease: "power3.in" }, "<")
       .to(crack, { opacity: 0, duration: 0.3 }, "<");
-    if (fc) tl.to($$("path", fc), { drawSVG: "0%", duration: 0.7, ease: "power2.inOut", stagger: 0.06 }, "<0.1")
-      .to($$("line", fc), { drawSVG: "50% 50%", duration: 0.6, ease: "power2.in" }, "<")
-      .to($$("polygon", fc), { scale: 0, transformOrigin: "50% 50%", duration: 0.3 }, "<");
+    if (fc) tl.to($$(".fx-fc path", fc), { drawSVG: "0%", duration: 0.7, ease: "power2.inOut", stagger: 0.06 }, "<0.1")
+      .to($$(".fx-fe.t, .fx-fe.b", fc), { scaleX: 0, duration: 0.6, ease: "power2.in" }, "<")
+      .to($$(".fx-fe.l, .fx-fe.r", fc), { scaleY: 0, duration: 0.6, ease: "power2.in" }, "<")
+      .to($$(".fx-fc polygon", fc), { scale: 0, transformOrigin: "50% 50%", duration: 0.3 }, "<");
     const lsv = $(".fx-lslot svg", CR);
     if (lsv) {
       const t = $("text", lsv), txt = [$(".hfait", CR), $(".hregle", CR)].filter(Boolean);
