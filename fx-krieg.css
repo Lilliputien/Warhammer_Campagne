@@ -1,0 +1,67 @@
+/* ============================================================
+   CYTHEREA — EFFETS VALIDÉS · FACTION KRIEG (la 88e)
+   Proposition D (fond Registre, socle Registre, barrage de la
+   Tranchée, encadré Piquets, survol et portrait Viseur).
+   Tout est limité à body.fx-krieg, posée par fx-krieg.js
+   uniquement sur la page de la faction Krieg.
+   ============================================================ */
+
+/* couches d'effets */
+#kfxbg{position:fixed; inset:0; width:100%; height:100%; z-index:0; pointer-events:none; display:block}
+#kfxburst{position:fixed; inset:0; z-index:30; pointer-events:none}
+#kfxflash{position:fixed; inset:0; z-index:29; pointer-events:none; background:var(--accent); opacity:0}
+#kfxhorizon{position:fixed; left:0; right:0; top:0; height:42vh; z-index:28; pointer-events:none; opacity:0;
+  background:radial-gradient(70% 100% at var(--hx,70%) 0%, rgba(232,217,160,.55), rgba(205,209,154,.12) 45%, transparent 75%)}
+#kfxveil{position:fixed; inset:0; z-index:3; pointer-events:none; opacity:0;
+  background:radial-gradient(120% 90% at 50% 50%, rgba(11,12,8,.5), rgba(5,6,3,.92))}
+#kfxdstage{position:absolute; left:0; top:0; z-index:6; pointer-events:none; overflow:visible}
+/* le flou de l'en-tête se recalcule quand le fond change dessous : fond presque opaque à la place */
+body.fx-krieg header.bar{-webkit-backdrop-filter:none; backdrop-filter:none; background:color-mix(in srgb,var(--ink) 96%,transparent)}
+.kfx-caret{display:inline-block; width:.08em; height:.9em; margin-left:.06em; background:currentColor; vertical-align:-.08em; animation:kfxblink .7s steps(1) infinite}
+@keyframes kfxblink{50%{opacity:0}}
+
+/* tracker */
+body.fx-krieg .hrow{position:relative}
+body.fx-krieg .hrow.onstage{z-index:7}
+body.fx-krieg .hcount{display:inline-block}
+body.fx-krieg .hbadge{position:relative; transform-origin:50% 50%}
+.kfx-sweep{position:absolute; left:-1px; right:-1px; bottom:-1px; height:2px; background:var(--accent-bright); transform:scaleX(0); opacity:0; pointer-events:none}
+.malusrow .kfx-sweep{background:var(--ash-light)}
+.kfx-strike{position:absolute; left:-3px; right:-3px; top:50%; height:1.5px; background:var(--ink); transform-origin:0 50%; pointer-events:none}
+.kfx-cwin{display:inline-block; overflow:hidden; vertical-align:bottom; line-height:1.3}
+.kfx-cwin .cval{display:inline-block}
+body.fx-krieg .hrow.track{transition:border-color .25s}
+body.fx-krieg .hrow.track:hover{border-color:var(--line-strong)}
+
+/* survol « Viseur » : quatre équerres se resserrent sur la ligne */
+.kfx-b{position:absolute; width:12px; height:12px; pointer-events:none; border:0 solid var(--accent-bright); opacity:0; transition:opacity .2s, transform .28s cubic-bezier(.2,.8,.2,1)}
+.kfx-b.tl{left:-6px; top:-6px; border-left-width:1.5px; border-top-width:1.5px; transform:translate(-10px,-10px)}
+.kfx-b.tr{right:-6px; top:-6px; border-right-width:1.5px; border-top-width:1.5px; transform:translate(10px,-10px)}
+.kfx-b.bl{left:-6px; bottom:-6px; border-left-width:1.5px; border-bottom-width:1.5px; transform:translate(-10px,10px)}
+.kfx-b.br{right:-6px; bottom:-6px; border-right-width:1.5px; border-bottom-width:1.5px; transform:translate(10px,10px)}
+.malusrow .kfx-b{border-color:var(--ash-light)}
+@media (hover:hover) and (pointer:fine){
+  body.fx-krieg .hrow.track:hover .kfx-b{opacity:1; transform:none}
+}
+
+/* couronnement : décor persistant (encadré « Piquets ») */
+body.fx-krieg .hrow.crown > *:not(.kfx-deco){position:relative; z-index:1}
+.kfx-deco{position:absolute; inset:0; pointer-events:none; z-index:0}
+.kfx-deco svg{position:absolute; overflow:visible}
+.kfx-deco .kfx-frm{z-index:2}
+.kfx-deco .kfx-sacs{left:-4px; bottom:-18px; height:26px; width:calc(100% + 8px)}
+.kfx-ctitle{display:inline-block}
+/* place réservée autour de la dalle : les piquets et le barbelé débordent de 30 px
+   au-dessus, les sacs de 18 px en dessous (écart de la grille : 12 px) */
+body.fx-krieg .hrow.crown{transition:margin .45s cubic-bezier(.2,.7,.2,1)}
+body.fx-krieg .hrow.crown[data-kfx-deco="piquets"]{margin-top:34px; margin-bottom:24px}
+
+/* portrait du dirigeant : réticule « Viseur » */
+body.fx-krieg .leader .portrait{position:relative; overflow:visible}
+body.fx-krieg .leader .portrait svg{overflow:visible}
+.kfx-pov{position:absolute; inset:0; width:100%; height:100%; pointer-events:none}
+
+@media (prefers-reduced-motion: reduce){
+  body.fx-krieg .hrow.crown{transition:none}
+  .kfx-caret{animation:none}
+}
