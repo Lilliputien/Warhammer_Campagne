@@ -1,0 +1,54 @@
+/* ============================================================
+   CYTHEREA — ATELIER DES CARTES (tables.js)
+   Interface sobre du socle commun : thème hub, aucune animation,
+   survol = changement de bordure instantané.
+   ============================================================ */
+#v-atelier .at{width:calc(100vw - 32px); max-width:1680px; margin-left:50%; transform:translateX(-50%); padding:18px 0 40px}
+.at-bar{display:flex; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; gap:12px 20px; margin-bottom:12px}
+.at-title h2{font-family:var(--display); font-weight:400; letter-spacing:.06em; margin:0; font-size:1.6rem}
+.at-title span{display:block; font-style:italic; color:var(--bone-dim); font-size:.9rem}
+.at-tools{display:flex; flex-wrap:wrap; gap:6px}
+.at-btn{background:var(--panel); color:var(--bone); border:1px solid var(--line-strong); padding:5px 11px; font:inherit; font-size:.86rem; cursor:pointer; border-radius:2px}
+.at-btn:hover{border-color:var(--accent)}
+.at-btn[aria-pressed="true"], .at-btn.at-main{background:var(--accent); color:var(--ink); border-color:var(--accent)}
+.at-btn:disabled{opacity:.45; cursor:default}
+.at-btn:focus-visible, .at input:focus-visible, .at select:focus-visible, .at textarea:focus-visible, .at-pal button:focus-visible{outline:2px solid var(--accent-bright); outline-offset:1px}
+.at-grid{display:grid; grid-template-columns:232px 1fr 280px; height:min(78vh, 900px); min-height:520px; border:1px solid var(--line); background:var(--ink2)}
+.at-left, .at-right{overflow:auto; padding:10px 12px 20px; min-height:0}
+.at-left{border-right:1px solid var(--line)} .at-right{border-left:1px solid var(--line)}
+.at h3{font-family:var(--display); font-weight:400; text-transform:uppercase; letter-spacing:.2em; font-size:.66rem; color:var(--accent); margin:16px 0 7px}
+.at h3:first-child{margin-top:2px}
+.at-pal{display:grid; grid-template-columns:1fr 1fr; gap:6px}
+.at-pal button{display:flex; flex-direction:column; align-items:center; gap:3px; padding:5px 3px 6px; background:var(--panel); color:var(--bone); border:1px solid var(--line); cursor:pointer; font:inherit; font-size:.72rem; line-height:1.2; text-align:center; border-radius:2px}
+.at-pal button:hover{border-color:var(--accent)}
+.at-pal canvas{width:88px; height:56px; display:block}
+.at-stage{position:relative; min-width:0; min-height:0; background:#07090A}
+.at-stage canvas{position:absolute; inset:0; width:100%; height:100%; touch-action:none; display:block}
+.at-stage.is-measure canvas{cursor:crosshair}
+.at-hint{position:absolute; left:12px; bottom:10px; max-width:75%; font-size:.78rem; font-style:italic; color:var(--bone-dim); pointer-events:none}
+.at-f{display:block; font-size:.8rem; color:var(--bone-dim); margin:7px 0 2px}
+.at-f input, .at-f select, .at-f textarea{display:block; width:100%; margin-top:2px; background:var(--panel); color:var(--bone); border:1px solid var(--line-strong); padding:5px 7px; font:inherit; font-size:.88rem; border-radius:2px}
+.at-f textarea{min-height:80px; resize:vertical}
+.at-chk{display:flex; gap:6px; align-items:center; font-size:.85rem; margin:8px 0}
+.at-row2{display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:6px}
+.at-row3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px}
+.at-acts{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px}
+.at-muted{color:var(--bone-dim); font-style:italic; font-size:.86rem; margin:4px 0}
+.at-status{min-height:1.3em; font-size:.84rem; color:var(--accent-bright); margin:8px 0 0}
+.at-print{list-style:none; margin:0; padding:0}
+.at-print li{border-left:2px solid var(--accent-deep); padding:3px 0 3px 8px; margin-bottom:5px; font-size:.82rem}
+.at-print li span{display:block; color:var(--bone-dim); font-style:italic}
+/* cartes publiées (page Batailles) */
+.at-map{margin:0 0 30px; border:1px solid var(--line); background:var(--ink2)}
+.at-map figcaption{display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 14px; padding:10px 12px; border-bottom:1px solid var(--line)}
+.at-map-t{font-family:var(--display); font-size:1.1rem; letter-spacing:.04em}
+.at-map-m{color:var(--bone-dim); font-style:italic; font-size:.88rem; margin-right:auto}
+.at-map-c{background:#07090A}
+.at-map-c canvas{display:block; width:100%}
+@media (max-width:980px){
+  #v-atelier .at{width:auto; margin-left:0; transform:none}
+  .at-grid{grid-template-columns:1fr; height:auto}
+  .at-stage{height:52vh; order:-1}
+  .at-left{border-right:0; border-top:1px solid var(--line)} .at-right{border-left:0; border-top:1px solid var(--line)}
+  .at-pal{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}
+}

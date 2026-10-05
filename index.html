@@ -37,6 +37,7 @@
       <a data-go="/factions">Factions</a>
       <a data-go="/actes">Actes</a>
       <a data-go="/batailles">Batailles</a>
+      <a data-go="/atelier" id="navAtelier" style="display:none">Atelier</a>
       <button id="adminToggle" class="admin-toggle" type="button" hidden></button>
       <a id="logoutBtn" class="logout">Déconnexion</a>
     </nav>
@@ -139,10 +140,14 @@
     <div class="sec-head"><span class="eyebrow">Archives de guerre</span><h2>Historique des batailles</h2></div>
     <p style="max-width:720px;color:var(--bone-dim)">Le registre des engagements, tenu par le maître de campagne et consultable par tous. Chaque acte se joue en trois parties.</p>
     <div id="battleHistory" style="margin-top:24px"></div>
+    <div class="sec-head" style="margin:44px 0 10px"><span class="eyebrow">Cartes</span><h2 style="font-size:1.7rem">Champs de bataille</h2></div>
+    <div id="battleMaps"></div>
     <div class="sec-head" style="margin:44px 0 10px"><span class="eyebrow">Bilan</span><h2 style="font-size:1.7rem">Victoires par faction</h2></div>
     <div class="standings" id="standings"></div>
   </div>
 </section>
+
+<section id="v-atelier" class="view"><div id="atelierBody"></div></section>
 
 </main>
 

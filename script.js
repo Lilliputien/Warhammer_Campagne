@@ -71,6 +71,7 @@ function heroMode(id){
   return 'static';
 }
 function renderAdminToggle(){
+  const na=document.getElementById('navAtelier'); if(na) na.style.display = ME.role==='admin' ? '' : 'none';   // onglet Atelier : admin seulement
   const b=document.getElementById('adminToggle'); if(!b) return;
   if(ME.role!=='admin'){ b.hidden=true; return; }
   b.hidden=false;
@@ -942,6 +943,25 @@ function destineeHTML(id){
     </div>`;
 }
 const VIEWS={'/':'v-accueil','/systeme':'v-systeme','/factions':'v-factions','/actes':'v-actes','/batailles':'v-batailles'};
+/* Cartes de bataille (tables.js + tables.css), chargées à la demande :
+   - /atelier : éditeur réservé à l'admin (la RLS Supabase fait la vraie protection) ;
+   - /batailles : cartes publiées, en lecture seule. */
+let TABLES_P=null;
+function loadTables(){
+  if(window.CytTables) return Promise.resolve(window.CytTables);
+  if(TABLES_P) return TABLES_P;
+  TABLES_P=new Promise((res,rej)=>{
+    const l=document.createElement('link'); l.rel='stylesheet'; l.href='tables.css'; document.head.appendChild(l);
+    const s=document.createElement('script'); s.src='tables.js';
+    s.onload=()=>res(window.CytTables); s.onerror=()=>{ TABLES_P=null; rej(new Error('tables.js')); };
+    document.head.appendChild(s);
+  });
+  return TABLES_P;
+}
+function mountTables(viewId){
+  if(viewId==='v-atelier'&&ME.role==='admin') loadTables().then(T=>T&&T.mountAtelier(document.getElementById('atelierBody'),{sb,systeme:(typeof SYSTEME!=='undefined'?SYSTEME:null)})).catch(()=>{});
+  else if(viewId==='v-batailles'&&sb) loadTables().then(T=>T&&T.renderPublished(document.getElementById('battleMaps'),{sb})).catch(()=>{});
+}
 function show(id){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id===id));}
 function setActive(r){document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('active',a.getAttribute('data-go')===r));}
 
@@ -953,6 +973,7 @@ function setActive(r){document.querySelectorAll('#nav a').forEach(a=>a.classList
    - une adresse peut être partagée ou ouverte dans un nouvel onglet.
    Formes : /  /systeme  /systeme/<id>  /factions  /factions/<id>
             /factions/<id>/dirigeant  /actes  /actes/<id>  /batailles
+            /atelier (admin seulement)
    ------------------------------------------------------------ */
 function routeFromHash(){
   const h=location.hash||'';
@@ -966,6 +987,7 @@ function go(route, opts){
   if(p[0]==='factions'&&p[1]){ renderFactio(p[1]); viewId='v-factio'; active='/factions'; if(p[2]) anchor=p[2]; }
   else if(p[0]==='actes'&&p[1]){ renderActe(p[1]); viewId='v-acte'; active='/actes'; }
   else if(p[0]==='systeme'){ viewId='v-systeme'; active='/systeme'; if(p[1]) anchor='ancre-'+p[1]; }
+  else if(p[0]==='atelier'){ viewId = ME.role==='admin' ? 'v-atelier' : 'v-accueil'; active = ME.role==='admin' ? '/atelier' : '/'; }
   else { const base='/'+(p[0]||''); viewId=VIEWS[base]||'v-accueil'; active=VIEWS[base]?base:'/'; }
   show(viewId); setActive(active);
   if(viewId==='v-actes') chronoCenter();
@@ -983,6 +1005,7 @@ function go(route, opts){
   else if(opts.keepScroll) {}
   else if(target){ const bar=document.querySelector('header.bar'); jump(target.getBoundingClientRect().top + window.scrollY - (bar?bar.offsetHeight:70) - 14); }
   else jump(0);
+  mountTables(viewId);   // cartes de bataille (tables.js), chargées à la demande
   if(window.CytFX) window.CytFX.onView(fac, viewId, opts);   // effets de faction (fx-custodes.js)
 }
 /* navigation déclenchée par un clic : mémorise la position de lecture actuelle */
