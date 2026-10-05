@@ -707,3 +707,20 @@ p, .sys-points li, .hfait, .hregle{text-align:justify; text-wrap:pretty}
 }
 /* sur l'écran sarcelle, les intitulés de faction passent à la teinte vive (contraste ≥ 4.5:1, le rouge du Chœur tombait à 3.9) */
 .ch-panel .eyebrow,.ch-panel .ch-k{color:var(--accent-bright)}
+
+/* ------------------------------------------------------------
+   PROLOGUES DE FACTION (/actes/prologue-<faction>)
+   Réutilise .lore, .panel, .subhead et .tablewrap de la page Acte ;
+   le conteneur #acteDetail porte le data-theme de la faction.
+   ------------------------------------------------------------ */
+.act-detail .pro-table{max-width:740px}
+.act-detail .pro-table table{min-width:520px}
+.pro-list{margin:0}
+.pro-list div{padding:9px 0; border-bottom:1px solid var(--line)}
+.pro-list div:first-child{padding-top:0}
+.pro-list div:last-child{border-bottom:0; padding-bottom:0}
+.pro-list dt{font-family:var(--display); color:var(--accent-bright); letter-spacing:.04em}
+.pro-list dd{margin:4px 0 0}
+.pro-h{font-family:var(--display); font-weight:400; font-size:1.05rem; color:var(--bone); letter-spacing:.04em; margin:0 0 8px}
+.pro-ul{margin:0 0 18px; padding-left:20px}
+.pro-ul li{margin:0 0 6px}

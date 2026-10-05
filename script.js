@@ -71,7 +71,6 @@ function heroMode(id){
   return 'static';
 }
 function renderAdminToggle(){
-  const na=document.getElementById('navAtelier'); if(na) na.style.display = ME.role==='admin' ? '' : 'none';   // onglet Atelier : admin seulement
   const b=document.getElementById('adminToggle'); if(!b) return;
   if(ME.role!=='admin'){ b.hidden=true; return; }
   b.hidden=false;
@@ -431,7 +430,8 @@ const JOURNAL = [
    ------------------------------------------------------------ */
 const CHRONO_PALIERS={prologue:"Une partie par joueur","1":"500 à 1000 pts","2":"Jusqu'à 1500 pts","3":"1500 à 2000 pts","4":"2000 pts et plus"};
 const CHRONO_PROLOGUE={num:"Prologue", title:"L'Arrivée", parts:[
-  { id:"pro-necrons", faction:"necrons", label:"Éveillés", etat:"a-venir" },
+  { id:"pro-necrons", faction:"necrons", label:"Éveillés", titre:"Monde abandonné", lieu:"strates-basses", etat:"a-venir",
+    resume:"Une patrouille de la 88e, sous la supervision d'un Custodien, descend sur Naogeth en violation du Décret Lachrymae. Sous la Ruche Sépulcre, quelque chose a remarqué l'intrusion." },
   { id:"pro-red-choir", faction:"red-choir", label:"Chœur", etat:"a-venir" },
   { id:"pro-treizieme-cantique", faction:"treizieme-cantique", label:"Cantique", etat:"a-venir" },
   { id:"pro-custodes", faction:"custodes", label:"Garde", etat:"a-venir" },
@@ -713,6 +713,7 @@ function chronoSelect(key, silent){
         <dl class="ch-data">${data.map(([k,v])=>`<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>
         ${chronoLieu(p.lieu)}${res}
         ${p.resume?`<p class="ch-recit">${p.resume}</p>`:''}
+        ${p.faction&&PROLOGUES[p.faction]?`<a class="ch-go" data-go="/actes/prologue-${p.faction}" href="#/actes/prologue-${p.faction}">Lire le prologue →</a>`:''}
         ${p.etat==='a-venir'&&!p.lieu?'<p class="ch-recit">Le lieu et les forces en présence seront révélés à l\'annonce de la partie.</p>':''}`;
       const br=BRANCHES.filter(b=>b.part===p.id);
       if(br.length) html+=`<p class="note">${br.length>1?br.length+' embranchements':'Un embranchement'} s'ouvre${br.length>1?'nt':''} depuis ce jalon.</p>`;
@@ -797,8 +798,113 @@ function renderActs(){
     }
   });
 }
+/* ------------------------------------------------------------
+   PROLOGUES DE FACTION
+   Une partie d'introduction par joueur (Éveillés, Chœur Rouge,
+   Treizième Cantique ; Max joue Krieg et Custodes).
+   Route : /actes/prologue-<faction>. Contenu PUBLIC : rien qui soit
+   réservé au maître de campagne (notes de cohérence, points à tester).
+   ------------------------------------------------------------ */
+const PROLOGUES={
+  necrons:{
+    title:"Reconnaissance d'un monde abandonné",
+    texte:[
+      "Le Lord avait fait retirer les relais d'Ashkar au troisième cycle de sa veille, sans attendre qu'on lui confie la régence de Naogeth. Dix-sept stations d'écoute, alignées le long de l'arc qui faisait face au huitième corps, s'étaient éteintes dans l'ordre exact où il les avait désignées, chacune au milieu d'une transmission de routine que personne, à l'autre bout, ne songea à trouver incomplète. Depuis des siècles, des optiques humaines restaient braquées sur son monde comme on surveille une tombe qu'on a soi-même scellée, et il avait suffi d'un ordre pour que ce regard se ferme. Dans les Strates Basses, l'éveil reprit ensuite son cours, strate après strate, sous la garde de nobles encore engourdis par soixante millions d'années de sommeil, dont certains ne retrouvaient pas tout à fait leur nom. Puis un capteur enfoui sous un puits de service de la Ruche Sépulcre enregistra une variation de masse qu'aucune table ne prévoyait : quelque chose descendait, à la verticale, à la vitesse régulière d'un câble que l'on déroule. L'alerte parvint jusqu'à sa salle d'audience. Le Lord venait d'aveugler ces créatures, et ses archives, closes au seuil du Grand Sommeil, ne leur consacraient pas même une entrée : à l'époque, ce n'était qu'une vermine sans langage sur un monde qu'aucun Phaeron n'avait jugé digne d'être moissonné. Dans toute l'histoire de la dynastie, aucune espèce mineure n'avait forcé l'entrée d'un monde-tombeau avant d'y être convoquée pour la moisson. Le Lord fit répéter la mesure trois fois, comme si l'erreur pouvait venir des instruments plutôt que de l'univers qu'il croyait retrouver.",
+      "Le Lord ne descendit pas. Un noble de son rang ne se déplace pas pour constater une infraction : il délègue, puis il juge. Les Scarabs de la troisième strate veillaient déjà dans les galeries, et il les lança au-devant des intrus en essaims serrés, pour aller mesurer ce que les capteurs ne savaient pas nommer. Leurs images arrivèrent par fragments. Des corps de chair, enveloppés de manteaux épais, le visage caché sous des masques à filtre, progressaient en colonne dans des corridors que leur espèce n'avait jamais cartographiés, s'arrêtant à chaque embranchement pour tracer des signes à la craie sur les parois. Parmi eux avançait une silhouette qu'aucune classification ne parvenait à ranger avec les autres, trop dense pour de la chair, trop souple pour une machine, et les Scarabs qui s'en approchèrent cessèrent de transmettre l'un après l'autre. Le Lord ordonna qu'on réveille la première phalange. Il ignorait ce qu'était cette chose dorée. Il comptait l'apprendre en la démontant."
+    ],
+    cadre:[
+      ["Camps","Les Éveillés contre une patrouille de la 88e de Krieg, sous la supervision d'un Custodien."],
+      ["Lieu","Les Strates Basses, sous la Ruche Sépulcre, là où les corridors de la ruche morte cèdent la place aux galeries de la tombe."],
+      ["Format","40K V11, 500 pts par camp, sans véhicule ni monstre. Base Boarding Actions adaptée, table d'environ 44\" x 30\", durée variable à partir du round 4."]
+    ],
+    imperium:[
+      "Escouades Death Korps of Krieg, 10 figurines au plus par unité, composition libre dans la limite des points.",
+      "1 Commissar.",
+      "1 Krieg Heavy Weapons Squad (Krieg heavy flamer ou twin Krieg heavy stubber), scindée en 3 unités d'un servant.",
+      "1 Custodien superviseur (Blade Champion ou Shield-Captain).",
+      "Chaque contingent garde sa règle d'armée et un seul détachement, sans stratagème croisé.",
+      "Toute la patrouille est déployée au départ, autour du puits de descente."
+    ],
+    eveilles:"Un contingent global de 500 pts, découpé librement en petites unités : 3 figurines aux rounds 1 et 2, 4 aux rounds 3 et 4, 5 ensuite. Chaque unité coûte sa part du prix de référence (par exemple 27 pts pour 3 Necron Warriors). Les Scarabs, par 3 socles, sont déjà sur la table au début de la partie. Les personnages entrent seuls.",
+    entrees:[["Départ","—","Scarabs déjà en jeu"],["1","3","3 figurines"],["2","4","3 figurines"],["3","5","4 figurines"],["4","Le reste","4 figurines"],["5 et +","—","5 figurines"]],
+    table:[
+      ["A. Puits de descente","Centre de la table","Zone de déploiement de la patrouille et seule sortie de la carte."],
+      ["B. Corridors de la ruche","Autour du puits","Murs humains effondrés, 2 points de relevé."],
+      ["C. Galeries des crypte-stases","Ailes de la table","Couloirs étroits, 6 niches numérotées le long des murs, 2 points de relevé."],
+      ["D. Seuil","Entre C et E","Porte scellée à la géométrie non humaine."],
+      ["E. Salle haute","Un bord court","Les lentilles oculaires, 1 point de relevé majeur."]
+    ],
+    tableNotes:[
+      "Toutes les portes sont fermées au départ. La patrouille les ouvre selon les règles Boarding Actions ; une porte s'ouvre d'elle-même quand une unité nécronne arrive par une niche voisine.",
+      "Les murs coupent les lignes de vue. Les niches restent sur la table même inutilisées : la patrouille ne sait jamais lesquelles sont vides."
+    ],
+    regles:[
+      ["Éveil par strates","Toute l'armée nécronne commence en réserve, sauf les Scarabs, placés dans les galeries (C) à plus de 6\" du puits avant le déploiement de la patrouille. Elle entre au maximum 3 unités au round 1, 4 au round 2, 5 au round 3, puis tout le reste au round 4. Chaque unité qui arrive lance 1D6 : sur 1 à 3, elle est placée mais reste inactive jusqu'au round suivant (elle ne bouge, ne tire et ne charge pas, mais peut être ciblée) ; sur 4 à 6, elle agit normalement."],
+      ["Niches secrètes","Avant la partie, le joueur nécron note sur papier la niche d'arrivée de chaque unité et révèle chaque ligne au moment de l'arrivée. L'unité se place à 1\" de sa niche et à plus de 3\" de toute unité ennemie."],
+      ["Le scan qui réveille","Chaque relevé réussi par la patrouille fait monter l'éveil d'un cran : au round suivant, le joueur nécron peut faire entrer une unité de plus que le maximum prévu."],
+      ["Sous le regard de l'or","Une unité Krieg à 6\" ou moins du Custodien relance ses tests de Battle-shock."],
+      ["Réanimation plafonnée","Les Protocoles de Réanimation ramènent seulement des figurines détruites, jamais au-delà de l'effectif d'entrée de l'unité."]
+    ],
+    actions:[
+      ["Relevé","Une unité Krieg qui n'est pas en Battle-shock, à 1\" d'un point de relevé sans ennemi à portée d'engagement, commence l'action à sa phase de tir et la réussit à la fin du tour. Chaque point ne peut être relevé qu'une fois."],
+      ["Sceller","Une unité Krieg non engagée, à 1\" d'une niche, lance 1D6 à sa phase de tir. Sur 5+, la niche est scellée jusqu'à la fin de la partie, mais l'unité subit -1 à la touche jusqu'à la fin du tour. Une unité nécronne prévue sur une niche scellée arrive par une autre niche ouverte, au choix du joueur nécron. Une unité ne peut pas sceller et faire un relevé dans le même tour."],
+      ["La Brèche","Dès que toutes les niches sont scellées, la tombe se rouvre elle-même. Au début de son tour suivant, le joueur nécron place un pion Brèche contre un mur de bord de table, à plus de 6\" de toute unité Imperium. Toutes les unités encore en réserve arrivent par là, et la Brèche ne peut pas être scellée."]
+    ],
+    points:[
+      ["Imperium","Relevé dans les corridors (B)","1 par point"],
+      ["Imperium","Relevé dans les galeries (C)","2 par point"],
+      ["Imperium","Relevé de la salle haute (E)","4"],
+      ["Imperium","Custodien sorti par le puits","2"],
+      ["Éveillés","Unité Imperium détruite","2 par unité (les 3 servants d'arme lourde comptent comme une seule)"],
+      ["Éveillés","Custodien détruit","3 de plus"],
+      ["Éveillés","Aucun témoin : aucune unité Imperium sortie à la fin","3"]
+    ],
+    fin:[
+      "Les relevés ne comptent que si au moins une unité Imperium sort par le puits. Sans témoin, rien de ce qui a été vu n'existe.",
+      "À partir du round 3, une unité entièrement dans la zone A à la fin de sa phase de mouvement peut quitter la table. Elle ne revient pas.",
+      "Durée variable : à la fin du round 4, lancez 1D6 ; sur 4+, la partie continue. Il faut ensuite 5+ à la fin du round 5, puis 6+ à la fin de chaque round suivant. La partie s'arrête aussi dès que toutes les unités Imperium restantes sont sorties. Le camp qui a le plus de PV l'emporte."
+    ],
+    enjeux:[
+      ["Victoire des Éveillés","1 point dans la Voie du héros de Szareth, ou un trait mineur de faction.","La tombe s'est refermée"],
+      ["Victoire de l'Imperium","Un avantage de préparation à usage unique, utilisable seulement contre les Éveillés, au plus tard à la fin de l'Acte II.","Les relevés de la salle haute"],
+      ["Égalité","Aucun.","Les deux voies restent scellées"]
+    ]
+  }
+};
+function renderPrologue(fid, d){
+  const P=PROLOGUES[fid], f=FACTIONS.find(x=>x.id===fid);
+  if(!P||!f){ d.innerHTML='<a class="back" data-go="/actes">← Tous les actes</a><p>Prologue introuvable.</p>'; return; }
+  d.setAttribute('data-theme', fid);
+  const tbl=(head,rows)=>`<div class="tablewrap sys-table pro-table"><table><thead><tr>${head.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  const dl=list=>`<dl class="pro-list">${list.map(([k,v])=>`<div><dt>${k}</dt><dd>${v}</dd></div>`).join('')}</dl>`;
+  d.innerHTML=`<a class="back" data-go="/actes">← Tous les actes</a>
+    <span class="eyebrow">Prologue · ${f.name}</span><h2>${P.title}<span class="accentbar"></span></h2>
+    <div class="subhead">Ouverture · lore canonique</div>
+    <div class="lore block">${P.texte.map(p=>`<p>${p}</p>`).join('')}</div>
+    <div class="subhead">La mission</div>
+    <div class="panel">${dl(P.cadre)}</div>
+    <div class="subhead">Forces en présence</div>
+    <div class="panel"><h4 class="pro-h">Imperium</h4><ul class="pro-ul">${P.imperium.map(x=>`<li>${x}</li>`).join('')}</ul>
+      <h4 class="pro-h">${f.name}</h4><p>${P.eveilles}</p></div>
+    ${tbl(['Round','Unités max','Taille des unités'],P.entrees)}
+    <div class="subhead">La table</div>
+    ${tbl(['Zone','Position','Contenu'],P.table)}
+    <div class="panel">${P.tableNotes.map(x=>`<p>${x}</p>`).join('')}</div>
+    <div class="subhead">Règles spéciales</div>
+    <div class="panel">${dl(P.regles)}</div>
+    <div class="subhead">Actions et Brèche</div>
+    <div class="panel">${dl(P.actions)}</div>
+    <div class="subhead">Objectifs et points</div>
+    ${tbl(['Camp','Condition','PV'],P.points)}
+    <div class="panel">${P.fin.map(x=>`<p>${x}</p>`).join('')}</div>
+    <div class="subhead">Enjeux</div>
+    ${tbl(['Issue','Bonus de jeu','Embranchement'],P.enjeux)}
+    <p class="adapt">Le récit reste le même quel que soit le résultat : seuls le bonus et l'embranchement de la chronologie en dépendent. Une fois débloqué, l'embranchement est visible de tous ; l'avantage de jeu qu'il porte n'est affiché qu'à la faction concernée.</p>`;
+}
 function renderActe(id){
   const a=ACTS.find(x=>x.id===id), d=document.getElementById('acteDetail');
+  d.removeAttribute('data-theme');
+  if(id.indexOf('prologue-')===0){ renderPrologue(id.slice(9), d); return; }
   if(!a){d.innerHTML='<a class="back" data-go="/actes">← Tous les actes</a><p>Acte introuvable.</p>';return;}
   if(a.locked){
     d.innerHTML=`<a class="back" data-go="/actes">← Tous les actes</a>
@@ -943,25 +1049,6 @@ function destineeHTML(id){
     </div>`;
 }
 const VIEWS={'/':'v-accueil','/systeme':'v-systeme','/factions':'v-factions','/actes':'v-actes','/batailles':'v-batailles'};
-/* Cartes de bataille (tables.js + tables.css), chargées à la demande :
-   - /atelier : éditeur réservé à l'admin (la RLS Supabase fait la vraie protection) ;
-   - /batailles : cartes publiées, en lecture seule. */
-let TABLES_P=null;
-function loadTables(){
-  if(window.CytTables) return Promise.resolve(window.CytTables);
-  if(TABLES_P) return TABLES_P;
-  TABLES_P=new Promise((res,rej)=>{
-    const l=document.createElement('link'); l.rel='stylesheet'; l.href='tables.css'; document.head.appendChild(l);
-    const s=document.createElement('script'); s.src='tables.js';
-    s.onload=()=>res(window.CytTables); s.onerror=()=>{ TABLES_P=null; rej(new Error('tables.js')); };
-    document.head.appendChild(s);
-  });
-  return TABLES_P;
-}
-function mountTables(viewId){
-  if(viewId==='v-atelier'&&ME.role==='admin') loadTables().then(T=>T&&T.mountAtelier(document.getElementById('atelierBody'),{sb,systeme:(typeof SYSTEME!=='undefined'?SYSTEME:null)})).catch(()=>{});
-  else if(viewId==='v-batailles'&&sb) loadTables().then(T=>T&&T.renderPublished(document.getElementById('battleMaps'),{sb})).catch(()=>{});
-}
 function show(id){document.querySelectorAll('.view').forEach(v=>v.classList.toggle('on',v.id===id));}
 function setActive(r){document.querySelectorAll('#nav a').forEach(a=>a.classList.toggle('active',a.getAttribute('data-go')===r));}
 
@@ -973,7 +1060,6 @@ function setActive(r){document.querySelectorAll('#nav a').forEach(a=>a.classList
    - une adresse peut être partagée ou ouverte dans un nouvel onglet.
    Formes : /  /systeme  /systeme/<id>  /factions  /factions/<id>
             /factions/<id>/dirigeant  /actes  /actes/<id>  /batailles
-            /atelier (admin seulement)
    ------------------------------------------------------------ */
 function routeFromHash(){
   const h=location.hash||'';
@@ -987,7 +1073,6 @@ function go(route, opts){
   if(p[0]==='factions'&&p[1]){ renderFactio(p[1]); viewId='v-factio'; active='/factions'; if(p[2]) anchor=p[2]; }
   else if(p[0]==='actes'&&p[1]){ renderActe(p[1]); viewId='v-acte'; active='/actes'; }
   else if(p[0]==='systeme'){ viewId='v-systeme'; active='/systeme'; if(p[1]) anchor='ancre-'+p[1]; }
-  else if(p[0]==='atelier'){ viewId = ME.role==='admin' ? 'v-atelier' : 'v-accueil'; active = ME.role==='admin' ? '/atelier' : '/'; }
   else { const base='/'+(p[0]||''); viewId=VIEWS[base]||'v-accueil'; active=VIEWS[base]?base:'/'; }
   show(viewId); setActive(active);
   if(viewId==='v-actes') chronoCenter();
@@ -1005,7 +1090,6 @@ function go(route, opts){
   else if(opts.keepScroll) {}
   else if(target){ const bar=document.querySelector('header.bar'); jump(target.getBoundingClientRect().top + window.scrollY - (bar?bar.offsetHeight:70) - 14); }
   else jump(0);
-  mountTables(viewId);   // cartes de bataille (tables.js), chargées à la demande
   if(window.CytFX) window.CytFX.onView(fac, viewId, opts);   // effets de faction (fx-custodes.js)
 }
 /* navigation déclenchée par un clic : mémorise la position de lecture actuelle */
