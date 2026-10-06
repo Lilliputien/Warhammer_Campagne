@@ -248,7 +248,7 @@ let CAT_P=null;
 function loadCatalog(sb,admin){if(CAT_P)return CAT_P;CAT_P=(async()=>{if(!sb)return;try{
   const[d,a,s,si]=await Promise.all([sb.from('decor_types').select('*'),sb.from('area_types').select('*'),sb.from('decor_sets').select('*'),sb.from('decor_set_items').select('*')]);
   setCatalog(d.data,a.data);KAT.sets=s.data||[];KAT.setItems=si.data||[];
-  if(admin){const st=await sb.from('stl_sources').select('type_id,title,author,status,quantity');KAT.stl=st.data||[]}}catch(e){}})();return CAT_P}
+  if(admin){const st=await sb.from('stl_sources').select('id,type_id,title,url,author,license,scale,status,quantity,print_notes');KAT.stl=st.data||[]}}catch(e){}})();return CAT_P}
 
 /* ---------- géométrie et dessin ---------- */
 function areaPath(c,it){const{w,h}=it;c.beginPath();const sh=(KAT.areas[it.type]||{}).shape;if(sh==='triangle'){c.moveTo(-w/2,-h/2);c.lineTo(-w/2,h/2);c.lineTo(w/2,h/2);c.closePath()}else c.rect(-w/2,-h/2,w,h)}
@@ -284,17 +284,105 @@ function decompose(L,mods){const u=v=>Math.round(v*2),n=u(L),ms=[...new Set(mods
 function isDoor(it){if(it.k!=='f')return false;const d=KAT.decor[it.type]||{};const c=CAT[d.render_key||it.type];return!!(c&&c.door)}
 function rank(it){if(it.k==='a')return 1;if(it.k==='m')return it.type==='deploy'?0:5;const d=KAT.decor[it.type];return(d&&+d.layer===1)?2:3}
 function sorted(items){return items.map((it,i)=>({it,i})).sort((a,b)=>(rank(a.it)-rank(b.it))||(a.i-b.i)).map(o=>o.it)}
+/* ---------- portes encastrées : une porte posée sur un mur prend son axe et son épaisseur, et le mur s'ouvre à sa largeur ---------- */
+const HOSTWALL={tomb_wall:1,wall:1,muraille:1,sandbags:1,barricade:1};
+function isHostWall(it){return it.k==='f'&&!!HOSTWALL[(KAT.decor[it.type]||{}).render_key||it.type]}
+/* mur le plus proche du point p capable d'accueillir une porte ; t = position le long du mur depuis son centre */
+function wallAt(items,p,rot,skip){let best=null,bd=1e9;for(const w of items){if(w===skip||!isHostWall(w))continue;
+    const a=w.rot*PI/180,ux=Math.cos(a),uy=Math.sin(a),dx=p[0]-w.x,dy=p[1]-w.y,t=dx*ux+dy*uy,n=-dx*uy+dy*ux;
+    if(Math.abs(t)>w.w/2+.1||Math.abs(n)>w.h/2+.6)continue;
+    if(rot!=null){let da=Math.abs(((rot-w.rot)%180+180)%180);if(Math.min(da,180-da)>20)continue}
+    if(Math.abs(n)<bd){bd=Math.abs(n);best={wall:w,t}}}
+  return best}
+/* géométrie d'une porte de largeur dw posée sur le mur w : départ calé au demi-pouce depuis le début du mur */
+function doorFit(w,t,dw){const a=w.rot*PI/180,ux=Math.cos(a),uy=Math.sin(a);dw=Math.min(dw,w.w);
+  const t0=clamp(Math.round((t+w.w/2-dw/2)*2)/2,0,w.w-dw),sx=w.x-ux*w.w/2,sy=w.y-uy*w.w/2,at=v=>[sx+ux*v,sy+uy*v];
+  return{dw,t0,L1:t0,L2:w.w-t0-dw,at,c:at(t0+dw/2)}}
+function seatDoor(items,door,hit){const w=hit.wall,f=doorFit(w,hit.t,door.w),r2=v=>Math.round(v*100)/100;
+  door.w=r2(f.dw);door.h=w.h;door.rot=w.rot;door.x=r2(f.c[0]);door.y=r2(f.c[1]);
+  const P=[];if(f.L1>=.25){const c=f.at(f.L1/2);P.push(Object.assign({},w,{x:r2(c[0]),y:r2(c[1]),w:r2(f.L1)}))}
+  if(f.L2>=.25){const c=f.at(f.t0+f.dw+f.L2/2);P.push(Object.assign({},w,{id:P.length?uid():w.id,x:r2(c[0]),y:r2(c[1]),w:r2(f.L2)}))}
+  items.splice(items.indexOf(w),1,...P);const j=items.indexOf(door);if(j>=0){items.splice(j,1);items.push(door)}return f}
+/* porte retirée de son mur (déplacée ailleurs) : les deux morceaux de mur qui la touchaient se referment */
+function unseatDoor(items,door,x,y){const a=door.rot*PI/180,ux=Math.cos(a),uy=Math.sin(a),e1=[x-ux*door.w/2,y-uy*door.w/2],e2=[x+ux*door.w/2,y+uy*door.w/2],r2=v=>Math.round(v*100)/100;
+  const ends=w=>{const b=w.rot*PI/180,vx=Math.cos(b),vy=Math.sin(b);return[[w.x-vx*w.w/2,w.y-vy*w.w/2],[w.x+vx*w.w/2,w.y+vy*w.w/2]]};
+  const near=(p,q)=>Math.hypot(p[0]-q[0],p[1]-q[1])<.08,par=w=>{const da=Math.abs(((w.rot-door.rot)%180+180)%180);return Math.min(da,180-da)<1};
+  let A=null,Ae=null,B=null,Be=null;
+  for(const w of items){if(w===door||!isHostWall(w)||!par(w))continue;const E=ends(w);
+    if(!A&&(near(E[0],e1)||near(E[1],e1))){A=w;Ae=near(E[0],e1)?E[1]:E[0];continue}
+    if(!B&&(near(E[0],e2)||near(E[1],e2))){B=w;Be=near(E[0],e2)?E[1]:E[0]}}
+  if(!A&&!B)return false;
+  const span=(w,p,q)=>{w.x=r2((p[0]+q[0])/2);w.y=r2((p[1]+q[1])/2);w.w=r2(Math.hypot(q[0]-p[0],q[1]-p[1]))};
+  if(A&&B&&A.type===B.type&&Math.abs(A.h-B.h)<.01){span(A,Ae,Be);items.splice(items.indexOf(B),1)}
+  else if(A&&B){span(A,Ae,[x,y]);span(B,[x,y],Be)}
+  else if(A)span(A,Ae,e2);else span(B,e1,Be);
+  return true}
+
+/* ---------- besoins d'impression : décors posés sur les cartes, croisés avec les sources STL ---------- */
+function needsOf(items){const out={};(items||[]).filter(i=>i.k==='f').forEach(i=>{const mods=modulesFor(i.type),o=out[i.type]=out[i.type]||{n:0,len:0,mods:{},rest:[]};o.n++;
+    if(mods){o.len+=i.w;const r=decompose(i.w,mods);for(const[m,c]of Object.entries(r.cnt))o.mods[m]=(o.mods[m]||0)+c;if(r.rest)o.rest.push(r.rest)}});return out}
+/* plusieurs cartes : les décors resservent d'une partie à l'autre, on garde donc le maximum demandé par une seule carte */
+function needsMax(list){const out={};list.forEach(({name,need})=>{for(const[t,o]of Object.entries(need)){const m=out[t]=out[t]||{n:0,len:0,mods:{},rest:[],by:''};
+    if(o.n>m.n){m.n=o.n;m.by=name}if(o.len>m.len){m.len=o.len;m.rest=o.rest.slice()}for(const[k,c]of Object.entries(o.mods))m.mods[k]=Math.max(m.mods[k]||0,c)}});return out}
+const STAT_ORDER=['peint','imprime','a_imprimer','retenu','a_evaluer'];
+function coverage(t){const L=KAT.stl.filter(x=>x.type_id===t&&x.status!=='ecarte');if(!L.length)return{key:'none',txt:'aucune source',L};
+  const b=STAT_ORDER.find(st=>L.some(x=>x.status===st));return{key:b,txt:{peint:'peint',imprime:'imprimé',a_imprimer:'à imprimer',retenu:'source retenue',a_evaluer:'pistes à évaluer'}[b],L}}
+
+/* ---------- plan de pose : chaque zone et décor numéroté, coté depuis les bords les plus proches (façon plans de terrain GW) ---------- */
+const POSE_C='#F2B33D';
+const fN=v=>String(Math.round(v*10)/10).replace('.',',')+'″';
+function aabbW(it){const a=it.rot*PI/180,co=Math.abs(Math.cos(a)),si=Math.abs(Math.sin(a)),hw=(it.w*co+it.h*si)/2,hh=(it.w*si+it.h*co)/2;return{l:it.x-hw,r:it.x+hw,t:it.y-hh,b:it.y+hh}}
+function nameOf(it){return it.k==='a'?(KAT.areas[it.type]||{}).name||'Zone':it.k==='f'?(KAT.decor[it.type]||{}).name||it.type:(MARKERS[it.type]||{}).n||it.type}
+function poseEntries(map){const W=map.w,H=map.h;
+  const L=map.items.filter(i=>i.k==='a'||i.k==='f').map(it=>({it,b:aabbW(it)}))
+    .sort((p,q)=>(p.it.k===q.it.k?0:p.it.k==='a'?-1:1)||(Math.round(p.b.t)-Math.round(q.b.t))||(p.b.l-q.b.l));
+  let na=0,nf=0;
+  return L.map(({it,b})=>{const r=((it.rot%90)+90)%90,straight=r<.5||r>89.5;let px,py,hx,vy,ex,ey,dx,dy;
+    if(straight){if(b.l<=W-b.r){px=b.l;ex='gauche';dx=b.l;hx=0}else{px=b.r;ex='droit';dx=W-b.r;hx=W}
+      if(b.t<=H-b.b){py=b.t;ey='haut';dy=b.t;vy=0}else{py=b.b;ey='bas';dy=H-b.b;vy=H}}
+    else{px=it.x;py=it.y;if(px<=W-px){ex='gauche';dx=px;hx=0}else{ex='droit';dx=W-px;hx=W}if(py<=H-py){ey='haut';dy=py;vy=0}else{ey='bas';dy=H-py;vy=H}}
+    return{it,b,n:it.k==='a'?'Z'+(++na):String(++nf),px,py,hx,vy,ex,ey,dx:Math.max(0,dx),dy:Math.max(0,dy),straight}})}
+function poseText(e){const it=e.it,side=v=>v==='droit'?'droite':v;
+  const dims=e.straight?`${fN(e.b.r-e.b.l)} ↔ × ${fN(e.b.b-e.b.t)} ↕`:`${fN(it.w)} × ${fN(it.h)}, pivoté de ${Math.round(it.rot)}°`;
+  const ref=e.straight?`Coin ${e.ey}-${side(e.ex)}`:'Centre';
+  const d1=e.dx<.05?`contre le bord ${e.ex}`:`${fN(e.dx)} du bord ${e.ex}`,d2=e.dy<.05?`contre le bord ${e.ey}`:`${fN(e.dy)} du bord ${e.ey}`;
+  const extra=isDoor(it)?(it.open?' · ouverte':' · fermée'):it.k==='a'?(it.objective?' · objectif':'')+(it.obscuring?' · Obscurcissante':''):'';
+  return{num:e.n,name:nameOf(it)+(it.label?' « '+it.label+' »':''),dims:dims+extra,line:`${ref} à ${d1} et ${d2}`}}
+function drawPose(c,map,s,ox,oy,o){const E=poseEntries(map),dpr=o.dpr||1,only=o.poseOnly&&o.poseOnly.size?o.poseOnly:null,P=(x,y)=>[ox+x*s,oy+y*s];
+  const fs=Math.max(10*dpr,Math.min(13*dpr,s*.5)),placed=[],hitR=r=>placed.some(q=>r.x<q.x+q.w&&r.x+r.w>q.x&&r.y<q.y+q.h&&r.y+r.h>q.y);
+  c.save();c.setTransform(1,0,0,1,0,0);noShadow(c);
+  c.strokeStyle='rgba(242,179,61,.32)';c.lineWidth=dpr;c.setLineDash([6*dpr,6*dpr]);
+  let a=P(map.w/2,0),b=P(map.w/2,map.h);c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);a=P(0,map.h/2);b=P(map.w,map.h/2);c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.stroke();c.setLineDash([]);
+  const m=P(map.w/2,map.h/2);c.strokeStyle=POSE_C;c.lineWidth=1.5*dpr;c.beginPath();c.moveTo(m[0]-7*dpr,m[1]);c.lineTo(m[0]+7*dpr,m[1]);c.moveTo(m[0],m[1]-7*dpr);c.lineTo(m[0],m[1]+7*dpr);c.stroke();
+  c.font=`${fs}px Marcellus, Georgia, serif`;c.textBaseline='middle';c.textAlign='center';
+  const B=E.map(e=>{const tw=c.measureText(e.n).width,r=Math.max(9*dpr,tw/2+5*dpr),q=e.it.k==='a'?[Math.min(ox+e.b.l*s+r+3*dpr,ox+e.it.x*s),Math.min(oy+e.b.t*s+r+3*dpr,oy+e.it.y*s)]:P(e.it.x,e.it.y);/* badge de zone dans son coin haut-gauche, celui d'un décor en son centre */const R={x:q[0]-r,y:q[1]-r,w:2*r,h:2*r};placed.push(R);return{e,q,r}});
+  const dim=(p0,p1,val,horiz)=>{const t=fN(val),tw=c.measureText(t).width+6*dpr,th=fs*1.25;let R=null,cx,cy;
+      for(const f of[.5,.35,.65,.2,.8]){cx=p0[0]+(p1[0]-p0[0])*f;cy=p0[1]+(p1[1]-p0[1])*f;const q={x:cx-tw/2,y:cy-th/2,w:tw,h:th};if(!hitR(q)){R=q;break}}
+      if(!R)return false;   // pas de place pour le chiffre : la cote reste dans la fiche
+      c.strokeStyle=POSE_C;c.lineWidth=1.25*dpr;c.beginPath();c.moveTo(p0[0],p0[1]);c.lineTo(p1[0],p1[1]);const k=5*dpr;
+      for(const q of[p0,p1]){if(horiz){c.moveTo(q[0],q[1]-k);c.lineTo(q[0],q[1]+k)}else{c.moveTo(q[0]-k,q[1]);c.lineTo(q[0]+k,q[1])}}c.stroke();
+      placed.push(R);c.fillStyle='rgba(11,14,16,.88)';c.fillRect(R.x,R.y,R.w,R.h);c.fillStyle=POSE_C;c.fillText(t,cx,cy+dpr*.5);return true};
+  /* par défaut (comme les plans GW) : on cote les zones de terrain et les décors posés hors zone ; une sélection affiche ses propres cotes */
+  const areas=map.items.filter(i=>i.k==='a'),cote=e=>only?only.has(e.it.id):(e.it.k==='a'||!areas.some(a=>inside(a,[e.it.x,e.it.y])));
+  E.filter(cote).sort((p,q)=>(p.it.k==='a'?0:1)-(q.it.k==='a'?0:1)).forEach(e=>{const pt=P(e.px,e.py);let any=false;
+    const iy=e.py<.4?.6:e.py>map.h-.4?-.6:0,ix=e.px<.4?.6:e.px>map.w-.4?-.6:0;   // cote collée à un bord : décalée vers l'intérieur pour rester lisible
+    if(e.dx>=.05)any=dim(P(e.hx,e.py+iy),P(e.px,e.py+iy),e.dx,true)||any;if(e.dy>=.05)any=dim(P(e.px+ix,e.vy),P(e.px+ix,e.py),e.dy,false)||any;
+    if(any||e.dx<.05||e.dy<.05){c.fillStyle=POSE_C;c.beginPath();c.arc(pt[0],pt[1],3*dpr,0,TAU);c.fill()}});
+  B.forEach(({e,q,r})=>{const dim2=only&&!only.has(e.it.id);c.globalAlpha=dim2?.55:1;c.fillStyle='#0B0E10';c.strokeStyle=e.it.k==='a'?'#C2D7E3':POSE_C;c.lineWidth=1.5*dpr;
+    c.beginPath();if(e.it.k==='a')rrect(c,q[0]-r,q[1]-r*.8,2*r,1.6*r,3*dpr);else c.arc(q[0],q[1],r,0,TAU);c.fill();c.stroke();c.fillStyle='#F2EBDD';c.fillText(e.n,q[0],q[1]+dpr*.5);c.globalAlpha=1});
+  c.restore()}
 function drawOne(c,it,s,ox,oy){TS=+it.ts||1;c.save();c.setTransform(s,0,0,s,ox,oy);c.translate(it.x,it.y);c.rotate(it.rot*PI/180);
   if(it.k==='a')drawArea(c,it,s);else if(it.k==='f')drawFeature(c,it,s);else drawMarker(c,it,s);c.restore();noShadow(c);TS=1}
-function renderMap(c,map,s,ox,oy,o){const W=map.w,H=map.h;CURH=H;o=o||{};const dpr=o.dpr||1;LDPR=dpr;LQ=[];
+function renderMap(c,map,s,ox,oy,o){const W=map.w,H=map.h;CURH=H;o=o||{};const dpr=o.dpr||1;LDPR=dpr;LQ=[];const T0=TACT;if(o.pose)TACT=true;
   c.save();c.setTransform(1,0,0,1,0,0);c.shadowColor='rgba(0,0,0,.7)';c.shadowBlur=24*dpr;c.fillStyle='#000';c.fillRect(ox,oy,W*s,H*s);noShadow(c);
-  if(TACT){c.fillStyle='#1b2024';c.fillRect(ox,oy,W*s,H*s)}else c.drawImage(ground(map.biome,W,H),ox,oy,W*s,H*s);
+  if(TACT){c.fillStyle=o.pose?'#20272b':'#1b2024';c.fillRect(ox,oy,W*s,H*s)}else c.drawImage(ground(map.biome,W,H),ox,oy,W*s,H*s);
   c.beginPath();c.rect(ox,oy,W*s,H*s);c.clip();
-  if(o.grid){c.lineWidth=1;for(let x=0;x<=W;x++){c.strokeStyle=x%6?'rgba(232,222,200,.07)':'rgba(232,222,200,.17)';c.beginPath();c.moveTo(Math.round(ox+x*s)+.5,oy);c.lineTo(Math.round(ox+x*s)+.5,oy+H*s);c.stroke()}for(let y=0;y<=H;y++){c.strokeStyle=y%6?'rgba(232,222,200,.07)':'rgba(232,222,200,.17)';c.beginPath();c.moveTo(ox,Math.round(oy+y*s)+.5);c.lineTo(ox+W*s,Math.round(oy+y*s)+.5);c.stroke()}}
+  if(o.grid||o.pose){c.lineWidth=1;for(let x=0;x<=W;x++){c.strokeStyle=x%6?'rgba(232,222,200,.07)':'rgba(232,222,200,.17)';c.beginPath();c.moveTo(Math.round(ox+x*s)+.5,oy);c.lineTo(Math.round(ox+x*s)+.5,oy+H*s);c.stroke()}for(let y=0;y<=H;y++){c.strokeStyle=y%6?'rgba(232,222,200,.07)':'rgba(232,222,200,.17)';c.beginPath();c.moveTo(ox,Math.round(oy+y*s)+.5);c.lineTo(ox+W*s,Math.round(oy+y*s)+.5);c.stroke()}}
   const L=sorted(map.items);for(const it of L)drawOne(c,it,s,ox,oy);
   for(const it of L)if(it.k==='m'&&it.type==='deploy'){TS=+it.ts||1;c.save();c.setTransform(s,0,0,s,ox,oy);c.translate(it.x,it.y);c.rotate(it.rot*PI/180);drawMarker(c,it,s,'label');c.restore();TS=1}
   flushLabels(c,{x0:ox,y0:oy,x1:ox+W*s,y1:oy+H*s});
-  c.restore();
+  if(o.pose)drawPose(c,map,s,ox,oy,o);
+  c.restore();TACT=T0;
   if(o.rulers!==false){c.save();const col=o.rulerColor||'#A99C82';c.strokeStyle=col;c.fillStyle=col;c.lineWidth=1;const fs=Math.max(9,Math.min(12*dpr,s*.55));c.font=`${fs}px Marcellus, Georgia, serif`;c.textAlign='center';c.textBaseline='bottom';
     for(let x=0;x<=W;x++){const Lh=x%6?4:9,px=Math.round(ox+x*s)+.5;c.beginPath();c.moveTo(px,oy-2);c.lineTo(px,oy-2-Lh*dpr);c.stroke();if(x%6===0)c.fillText(x,px,oy-4-10*dpr)}
     c.textAlign='right';c.textBaseline='middle';for(let y=0;y<=H;y++){const Lh=y%6?4:9,py=Math.round(oy+y*s)+.5;c.beginPath();c.moveTo(ox-2,py);c.lineTo(ox-2-Lh*dpr,py);c.stroke();if(y%6===0)c.fillText(y,ox-6-10*dpr,py)}c.restore()}}
@@ -359,8 +447,10 @@ async function mountAtelier(host,opt){
       <button type="button" class="at-btn" data-mode="wall" aria-pressed="false" title="Tracer des murs (W)">Murs</button>
       <button type="button" class="at-btn" id="at-grid" aria-pressed="true">Grille</button>
       <button type="button" class="at-btn" id="at-tact" aria-pressed="false">Vue tactique</button>
+      <button type="button" class="at-btn" id="at-posev" aria-pressed="false" title="Plan de pose coté, pour installer la table en vrai (P)">Plan de pose</button>
       <button type="button" class="at-btn" id="at-undo" title="Ctrl+Z">Annuler</button>
       <button type="button" class="at-btn" id="at-redo" title="Ctrl+Y ou Ctrl+Maj+Z">Rétablir</button>
+      <button type="button" class="at-btn" id="at-needsb" aria-pressed="false" title="Ce qu'il faut imprimer, croisé avec les fichiers trouvés (B)">Besoins</button>
       <button type="button" class="at-btn" id="at-keys" title="Raccourcis clavier (?)" aria-expanded="false">?</button>
       <button type="button" class="at-btn" id="at-png">PNG</button>
       <button type="button" class="at-btn" id="at-json">JSON</button>
@@ -369,9 +459,10 @@ async function mountAtelier(host,opt){
   </div>
   <div class="at-grid">
     <aside class="at-left" id="at-pal"></aside>
-    <div class="at-stage" id="at-stage"><canvas id="at-cv" aria-label="Table de bataille"></canvas><div class="at-draft" id="at-draft" hidden></div><div class="at-hint" id="at-hint"></div><div class="at-keys" id="at-keyspanel" hidden></div></div>
+    <div class="at-stage" id="at-stage"><canvas id="at-cv" aria-label="Table de bataille"></canvas><div class="at-draft" id="at-draft" hidden></div><div class="at-hint" id="at-hint"></div><div class="at-keys" id="at-keyspanel" hidden></div><div class="at-needs" id="at-needs" hidden></div></div>
     <aside class="at-right">
       <div id="at-insp"></div>
+      <div id="at-posebox" hidden><h3>Fiche de pose</h3><p class="at-muted">Mesures en pouces depuis les deux bords les plus proches. Bord haut = haut du plan. Clique une ligne pour n'afficher que ses cotes.</p><ol class="at-pose" id="at-pose"></ol></div>
       <h3>Carte</h3>
       <label class="at-f">Ouvrir<select id="at-list"></select></label>
       <div class="at-row2"><button type="button" class="at-btn" id="at-new">Nouvelle</button><button type="button" class="at-btn" id="at-proto">Modèle prologue</button></div>
@@ -397,7 +488,7 @@ async function mountAtelier(host,opt){
   </div></div>`;
   const $=id=>host.querySelector('#'+id);
   const cv=$('at-cv'),ctx=cv.getContext('2d'),stage=$('at-stage');
-  let trace=null,traceType='tomb_wall',tracePt=null,traceSnap=null,S=new Set(),guides=[],box=null,redoS=[],redoBak=null,CLIP=null,pasteN=0,mouseW=null,M=prologueV11(),sel=null,mode='sel',grid=true,undoS=[],view={s:10,ox:0,oy:0},DPR=1,measure=null,drag=null,dirty=false;
+  let pose=false,poseSig='',wallKind='wall',doorType='door_tomb',doorWv=null,traceThick={},trace=null,traceType='tomb_wall',tracePt=null,traceSnap=null,S=new Set(),guides=[],box=null,redoS=[],redoBak=null,CLIP=null,pasteN=0,mouseW=null,M=prologueV11(),sel=null,mode='sel',grid=true,undoS=[],view={s:10,ox:0,oy:0},DPR=1,measure=null,drag=null,dirty=false;
   const status=t=>{$('at-status').textContent=t||''};
   const visible=()=>host.offsetParent!==null;
   function fit(){const r=stage.getBoundingClientRect();if(r.width<10||r.height<10)return;DPR=window.devicePixelRatio||1;cv.width=Math.round(r.width*DPR);cv.height=Math.round(r.height*DPR);const pad=34*DPR,s=Math.max(1,Math.min((cv.width-2*pad)/M.w,(cv.height-2*pad)/M.h));view={s,ox:(cv.width-M.w*s)/2,oy:(cv.height-M.h*s)/2};draw()}
@@ -413,7 +504,7 @@ async function mountAtelier(host,opt){
   function resizeCursor(it,h){let ang=(Math.atan2(h.sy,h.sx)*180/PI+it.rot+360)%180;const c=['ew','nwse','ns','nesw'];return c[Math.round(ang/45)%4]+'-resize'}
   function handleAt(it,p){let best=null,bd=12;for(const h of handles(it)){const d=Math.hypot(h.p[0]-p[0],h.p[1]-p[1])*view.s/DPR;if(d<bd){bd=d;best=h}}return best}
   function draw(){const{s,ox,oy}=view;ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,cv.width,cv.height);
-    renderMap(ctx,M,s,ox,oy,{grid,dpr:DPR,rulerColor:getComputedStyle(host).getPropertyValue('--bone-dim').trim()||'#A99C82'});
+    renderMap(ctx,M,s,ox,oy,{grid,pose,poseOnly:pose?S:null,dpr:DPR,rulerColor:getComputedStyle(host).getPropertyValue('--bone-dim').trim()||'#A99C82'});if(pose)updatePose();
     const SI=selItems();
     for(const it of SI){ctx.save();ctx.setTransform(s,0,0,s,ox,oy);ctx.translate(it.x,it.y);ctx.rotate(it.rot*PI/180);ctx.setLineDash([6/s,4/s]);ctx.strokeStyle='#C2D7E3';ctx.lineWidth=1.5*DPR/s;ctx.strokeRect(-it.w/2-.15,-it.h/2-.15,it.w+.3,it.h+.3);ctx.restore()}
     if(SI.length===1){const k=corners(SI[0]);ctx.save();ctx.setTransform(1,0,0,1,0,0);const P=p=>[ox+p[0]*s,oy+p[1]*s];const t=P(k.top),r=P(k.rot);ctx.strokeStyle='#C2D7E3';ctx.lineWidth=1.5*DPR;ctx.beginPath();ctx.moveTo(t[0],t[1]);ctx.lineTo(r[0],r[1]);ctx.stroke();ctx.fillStyle='#151A1F';ctx.beginPath();ctx.arc(r[0],r[1],6*DPR,0,TAU);ctx.fill();ctx.stroke();ctx.fillStyle='#C2D7E3';ctx.strokeStyle='#151A1F';ctx.lineWidth=1.5*DPR;for(const hd of handles(SI[0])){const q=P(hd.p),z=(hd.sx&&hd.sy?5:4)*DPR;ctx.fillRect(q[0]-z,q[1]-z,2*z,2*z);ctx.strokeRect(q[0]-z,q[1]-z,2*z,2*z)}ctx.restore()}
@@ -423,7 +514,7 @@ async function mountAtelier(host,opt){
     if(mode==='wall')drawTrace();
     if(measure){const a=[ox+measure.a[0]*s,oy+measure.a[1]*s],b=[ox+measure.b[0]*s,oy+measure.b[1]*s],d=Math.hypot(measure.b[0]-measure.a[0],measure.b[1]-measure.a[1]);ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.strokeStyle='rgba(8,10,10,.8)';ctx.lineWidth=5*DPR;ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();ctx.strokeStyle='#E8DEC8';ctx.lineWidth=2*DPR;ctx.stroke();ctx.font=`${14*DPR}px Marcellus, Georgia, serif`;ctx.textAlign='center';ctx.textBaseline='bottom';const tx=(a[0]+b[0])/2,ty=(a[1]+b[1])/2-8*DPR,txt=d.toFixed(1).replace('.',',')+'″';ctx.lineWidth=4*DPR;ctx.strokeStyle='rgba(8,10,10,.85)';ctx.strokeText(txt,tx,ty);ctx.fillStyle='#E8DEC8';ctx.fillText(txt,tx,ty);ctx.restore()}}
   new ResizeObserver(fit).observe(stage);
-  function hint(txt){$('at-hint').textContent=txt||(mode==='mes'?'Glisse sur la table pour mesurer.':mode==='wall'?(trace?'Clique pour poser l\u2019angle suivant. Double-clic ou Entrée : finir. Retour arrière : effacer le dernier segment.':'Clique pour poser le début du mur. Angles calés à 45° (Maj : libre), Alt : sans grille. Un clic sur l\u2019extrémité d\u2019un mur s\u2019y raccroche.'):S.size>1?S.size+' éléments sélectionnés. Glisse l\u2019un d\u2019eux pour tout déplacer ; Maj+clic ajoute ou retire ; Suppr retire.':sel?'Rond : pivoter. Carrés : étirer, le côté opposé reste fixe (Ctrl : depuis le centre). Suppr : retirer.':TACT?'Vue tactique : zone pleine = Obscurcissante, pointillée = sans blocage, liseré doré = objectif ; hauteur affichée sur les décors de 3″ et plus (Tir plongeant).':'Glisse dans le vide pour sélectionner plusieurs éléments (Ctrl+glisser : depuis n\u2019importe où). Pose d\u2019abord les zones de terrain, puis les décors dessus.')}
+  function hint(txt){$('at-hint').textContent=txt||(mode==='mes'?'Glisse sur la table pour mesurer.':mode==='wall'?(wallKind==='door'?'Survole un mur : la porte s\u2019aligne dessus et prend son épaisseur. Clic : la poser, le mur s\u2019ouvre à sa largeur.':trace?'Clique pour poser l\u2019angle suivant. Double-clic ou Entrée : finir. Retour arrière : effacer le dernier segment.':'Clique pour poser le début du mur. Angles calés à 45° (Maj : libre), Alt : sans grille. Un clic sur l\u2019extrémité d\u2019un mur s\u2019y raccroche.'):S.size>1?S.size+' éléments sélectionnés. Glisse l\u2019un d\u2019eux pour tout déplacer ; Maj+clic ajoute ou retire ; Suppr retire.':pose&&!S.size?'Plan de pose : tout est numéroté ; les zones et les décors hors zone sont cotés depuis les bords les plus proches. Clique un élément ou une ligne de la fiche pour voir ses cotes (Maj+clic pour en cumuler) ; PNG exporte le plan avec la fiche complète.':sel?'Rond : pivoter. Carrés : étirer, le côté opposé reste fixe (Ctrl : depuis le centre). Suppr : retirer.':TACT?'Vue tactique : zone pleine = Obscurcissante, pointillée = sans blocage, liseré doré = objectif ; hauteur affichée sur les décors de 3″ et plus (Tir plongeant).':'Glisse dans le vide pour sélectionner plusieurs éléments (Ctrl+glisser : depuis n\u2019importe où). Pose d\u2019abord les zones de terrain, puis les décors dessus.')}
   /* palette */
   function previewCanvas(drawFn,w,h,bg){const pc=document.createElement('canvas');pc.width=176;pc.height=112;const c=pc.getContext('2d');c.fillStyle=bg;c.fillRect(0,0,176,112);const sc=Math.min(150/w,88/h,40);drawFn(c,sc);return pc}
   function buildPalette(){const host2=$('at-pal');host2.innerHTML='';
@@ -505,11 +596,23 @@ async function mountAtelier(host,opt){
     if(from&&!e.shiftKey){let a=Math.atan2(p[1]-from[1],p[0]-from[0]);a=Math.round(a/(PI/4))*(PI/4);let L=Math.hypot(p[0]-from[0],p[1]-from[1])*Math.cos(Math.atan2(p[1]-from[1],p[0]-from[0])-a);L=e.altKey?Math.round(L*100)/100:Math.round(L*2)/2;
       return[clamp(Math.round((from[0]+Math.cos(a)*L)*100)/100,0,M.w),clamp(Math.round((from[1]+Math.sin(a)*L)*100)/100,0,M.h)]}
     return[clamp(snap(p[0],e.altKey),0,M.w),clamp(snap(p[1],e.altKey),0,M.h)]}
-  function addWall(a,b){const L=Math.hypot(b[0]-a[0],b[1]-a[1]);if(L<.25)return false;const d=KAT.decor[traceType]||{};pushUndo();
-    M.items.push({k:'f',id:uid(),type:traceType,x:Math.round((a[0]+b[0])/2*100)/100,y:Math.round((a[1]+b[1])/2*100)/100,w:Math.round(L*100)/100,h:+d.depth_in||1,rot:((Math.round(Math.atan2(b[1]-a[1],b[0]-a[0])*180/PI*100)/100)+360)%360});printList();return true}
+  function thickOf(t){return traceThick[t]!=null?traceThick[t]:(+(KAT.decor[t]||{}).depth_in||1)}
+  function doorTypes(){return Object.values(KAT.decor).filter(d=>{const c=CAT[d.render_key||d.id];return c&&c.door})}
+  function doorWidth(){return doorWv||+(KAT.decor[doorType]||{}).width_in||3}
+  function placeDoor(p){const d=KAT.decor[doorType]||{},hit=wallAt(M.items,p,null,null);
+    if(!hit){status('Clique sur un mur : la porte s\u2019y encastre et le mur s\u2019ouvre à sa largeur.');return}
+    pushUndo();const door={k:'f',id:uid(),type:doorType,x:p[0],y:p[1],w:doorWidth(),h:+d.depth_in||1,rot:0,open:false};M.items.push(door);const f=seatDoor(M.items,door,hit);
+    printList();status(`${d.name||'Porte'} encastrée : ${fIn(door.w)} de passage, mur de ${fIn(f.L1)} et ${fIn(f.L2)} de part et d\u2019autre.`);req()}
+  function addWall(a,b){const L=Math.hypot(b[0]-a[0],b[1]-a[1]);if(L<.25)return false;pushUndo();
+    M.items.push({k:'f',id:uid(),type:traceType,x:Math.round((a[0]+b[0])/2*100)/100,y:Math.round((a[1]+b[1])/2*100)/100,w:Math.round(L*100)/100,h:thickOf(traceType),rot:((Math.round(Math.atan2(b[1]-a[1],b[0]-a[0])*180/PI*100)/100)+360)%360});printList();return true}
   function endTrace(){if(!trace)return;const n=trace.pts.length-1;trace=null;tracePt=null;req();if(n>0)status(n+(n>1?' murs tracés.':' mur tracé.'));buildInsp()}
   function traceLen(){if(!trace)return 0;let t=0;for(let i=1;i<trace.pts.length;i++)t+=Math.hypot(trace.pts[i][0]-trace.pts[i-1][0],trace.pts[i][1]-trace.pts[i-1][1]);return t}
-  function drawTrace(){const{s,ox,oy}=view;ctx.save();ctx.setTransform(1,0,0,1,0,0);const P=q=>[ox+q[0]*s,oy+q[1]*s],d=KAT.decor[traceType]||{},th=Math.max(2*DPR,(+d.depth_in||1)*s);
+  function drawTrace(){const{s,ox,oy}=view;ctx.save();ctx.setTransform(1,0,0,1,0,0);const P=q=>[ox+q[0]*s,oy+q[1]*s],th=Math.max(2*DPR,thickOf(traceType)*s);
+    if(wallKind==='door'){if(tracePt){const hit=wallAt(M.items,tracePt,null,null),r=P(tracePt);
+        if(hit){const w=hit.wall,f=doorFit(w,hit.t,doorWidth());ctx.save();ctx.setTransform(s,0,0,s,ox,oy);ctx.translate(f.c[0],f.c[1]);ctx.rotate(w.rot*PI/180);ctx.fillStyle='rgba(224,108,196,.28)';ctx.fillRect(-f.dw/2,-w.h/2-.2,f.dw,w.h+.4);ctx.lineWidth=2*DPR/s;ctx.strokeStyle='#E06CC4';ctx.strokeRect(-f.dw/2,-w.h/2-.2,f.dw,w.h+.4);ctx.restore();
+          const q=P(f.c),t=`porte ${fIn(f.dw)} · mur ${fIn(f.L1)} | ${fIn(f.L2)}`;ctx.font=`${12*DPR}px Marcellus, Georgia, serif`;ctx.textAlign='center';ctx.textBaseline='bottom';ctx.lineWidth=4*DPR;ctx.strokeStyle='rgba(8,10,10,.85)';ctx.strokeText(t,q[0],q[1]-(w.h*s/2+10*DPR));ctx.fillStyle='#E06CC4';ctx.fillText(t,q[0],q[1]-(w.h*s/2+10*DPR))}
+        else{ctx.strokeStyle='rgba(194,215,227,.7)';ctx.lineWidth=1.5*DPR;ctx.beginPath();ctx.arc(r[0],r[1],5*DPR,0,TAU);ctx.stroke();ctx.font=`${11*DPR}px Marcellus, Georgia, serif`;ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillStyle='rgba(194,215,227,.8)';ctx.fillText('aucun mur',r[0]+9*DPR,r[1])}}
+      ctx.restore();return}
     const pts=trace?trace.pts.slice():[];if(trace&&tracePt)pts.push(tracePt);
     if(pts.length>1){ctx.strokeStyle='rgba(194,215,227,.35)';ctx.lineWidth=th;ctx.lineCap='square';ctx.beginPath();pts.forEach((q,i)=>{const r=P(q);i?ctx.lineTo(r[0],r[1]):ctx.moveTo(r[0],r[1])});ctx.stroke();
       ctx.strokeStyle='#C2D7E3';ctx.lineWidth=1.5*DPR;ctx.setLineDash([6*DPR,4*DPR]);ctx.stroke();ctx.setLineDash([])}
@@ -518,7 +621,7 @@ async function mountAtelier(host,opt){
     if(tracePt){const r=P(tracePt);ctx.strokeStyle=traceSnap?'#E06CC4':'#C2D7E3';ctx.lineWidth=2*DPR;ctx.beginPath();ctx.arc(r[0],r[1],(traceSnap?8:5)*DPR,0,TAU);ctx.stroke();
       if(traceSnap){ctx.font=`${11*DPR}px Marcellus, Georgia, serif`;ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillStyle='#E06CC4';ctx.fillText(traceSnap==='fermer'?'fermer':'raccord',r[0]+11*DPR,r[1])}}
     ctx.restore()}
-  cv.addEventListener('pointerdown',e=>{if(mode!=='wall')return;e.stopImmediatePropagation();const p=traceSnapPt(toWorld(e),e);
+  cv.addEventListener('pointerdown',e=>{if(mode!=='wall')return;e.stopImmediatePropagation();if(wallKind==='door'){placeDoor(toWorld(e));return}const p=traceSnapPt(toWorld(e),e);
     if(!trace){trace={pts:[p]};tracePt=p;buildInsp();req();return}
     const last=trace.pts[trace.pts.length-1];if(!addWall(last,p))return;
     if(traceSnap==='fermer'){trace.pts.push(p);endTrace();return}
@@ -532,9 +635,9 @@ async function mountAtelier(host,opt){
     if(h&&e.shiftKey){const n=new Set(S);n.has(h.id)?n.delete(h.id):n.add(h.id);setSel(n);return}
     if(h){const was=S.has(h.id)&&S.size>1;if(!S.has(h.id))setSel([h.id]);pushUndo();const st={};selItems().forEach(i=>st[i.id]=[i.x,i.y]);drag={kind:'move',it:h,p0:p,st,moved:false,was};return}
     box={a:p,b:p,base:e.shiftKey?new Set(S):new Set()};S=new Set(box.base);sel=null;req()});
-  cv.addEventListener('pointerleave',()=>{mouseW=null;if(mode==='wall'&&!trace){tracePt=null;req()}});
+  cv.addEventListener('pointerleave',()=>{mouseW=null;if(mode==='wall'&&(!trace||wallKind==='door')){tracePt=null;req()}});
   cv.addEventListener('dblclick',e=>{if(mode!=='sel')return;const h=hit(toWorld(e));if(h&&isDoor(h)){setSel([h.id]);setDoors([h],!h.open)}});
-  cv.addEventListener('pointermove',e=>{if(mode==='wall'){tracePt=traceSnapPt(toWorld(e),e);req()}});
+  cv.addEventListener('pointermove',e=>{if(mode==='wall'){tracePt=wallKind==='door'?toWorld(e):traceSnapPt(toWorld(e),e);req()}});
   cv.addEventListener('pointermove',e=>{if(mode==='wall')return;const p=toWorld(e);mouseW=(p[0]>=0&&p[0]<=M.w&&p[1]>=0&&p[1]<=M.h)?p:null;
     if(mode==='mes'&&measure&&e.buttons){measure.b=[snap(p[0],e.altKey),snap(p[1],e.altKey)];req();return}
     if(box){box.b=p;const r=rectOf(box);S=new Set(box.base);M.items.forEach(i=>{const b=aabb(i);if(b.l>=r.l-.01&&b.r<=r.r+.01&&b.t>=r.t-.01&&b.b<=r.b+.01)S.add(i.id)});
@@ -555,13 +658,16 @@ async function mountAtelier(host,opt){
       it.w=w;it.h=h;it.x=D.x0+cx*co-cy*si;it.y=D.y0+cx*si+cy*co;
       hint(`Longueur ${fIn(w)} · Largeur ${fIn(h)} — Ctrl : depuis le centre · Maj : proportions · Alt : sans grille`)}
     syncInsp();req()});
-  const endDrag=()=>{if(box){box=null;setSel(S);return}if(drag){const d=drag;drag=null;guides=[];if(d.kind==='move'&&!d.moved){undoS.pop();if(redoBak)redoS=redoBak;if(d.was)setSel([d.it.id])}hint();req()}};
+  const endDrag=()=>{if(box){box=null;setSel(S);return}if(drag){const d=drag;drag=null;guides=[];if(d.kind==='move'&&!d.moved){undoS.pop();if(redoBak)redoS=redoBak;if(d.was)setSel([d.it.id])}
+      else if(d.kind==='move'){const I=selItems();if(I.length===1&&isDoor(I[0])){const it=I[0],st=d.st[it.id],healed=unseatDoor(M.items,it,st[0],st[1]),hit=wallAt(M.items,[it.x,it.y],null,it);
+        if(hit){seatDoor(M.items,it,hit);status('Porte encastrée dans le mur.')}else if(healed)status('Porte sortie du mur : le mur s\u2019est refermé.');printList();syncInsp()}}
+      hint();req()}};
   cv.addEventListener('pointerup',endDrag);cv.addEventListener('pointercancel',endDrag);
   /* raccourcis : e.key suit la lettre imprimée, donc AZERTY et QWERTY se comportent pareil */
   const KEYS=[['Sélection',[['Clic','Sélectionner un élément'],['Glisser dans le vide','Encadrer plusieurs éléments'],['Ctrl + glisser','Encadrer depuis n\u2019importe où'],['Maj + clic','Ajouter ou retirer de la sélection'],['Ctrl + A','Tout sélectionner'],['Échap','Désélectionner, fermer cette aide']]],
     ['Édition',[['Ctrl + Z','Annuler'],['Ctrl + Y, Ctrl + Maj + Z','Rétablir'],['Ctrl + C','Copier'],['Ctrl + X','Couper'],['Ctrl + V','Coller (sous la souris si elle est sur la table)'],['Ctrl + D','Dupliquer'],['Suppr, Retour arrière','Retirer'],['Ctrl + S','Enregistrer la carte']]],
-    ['Déplacer et tourner',[['Flèches','Déplacer de 0,5″'],['Maj + flèches','Déplacer de 2″'],['Alt + flèches','Déplacer de 0,1″'],['Alt pendant un glisser','Sans aimant (grille et guides)'],['Carrés de la sélection','Étirer, le côté opposé reste fixe'],['Ctrl en étirant','Étirer depuis le centre (les deux côtés)'],['Maj en étirant un coin','Garder les proportions'],['R / Maj + R','Pivoter de 90° / −90°'],['Q / E','Pivoter de −15° / 15°'],['Page préc. / Page suiv.','Mettre devant / derrière'],['O ou double-clic','Ouvrir / fermer les portes sélectionnées']]],
-    ['Affichage',[['V','Outil Déplacer'],['M','Outil Mesurer'],['W','Outil Murs : clic par angle, double-clic ou Entrée pour finir, Retour arrière pour défaire'],['G','Grille'],['T','Vue tactique'],['?','Afficher ou masquer cette aide']]]];
+    ['Déplacer et tourner',[['Flèches','Déplacer de 0,5″'],['Maj + flèches','Déplacer de 2″'],['Alt + flèches','Déplacer de 0,1″'],['Alt pendant un glisser','Sans aimant (grille et guides)'],['Carrés de la sélection','Étirer, le côté opposé reste fixe'],['Ctrl en étirant','Étirer depuis le centre (les deux côtés)'],['Maj en étirant un coin','Garder les proportions'],['R / Maj + R','Pivoter de 90° / −90°'],['Q / E','Pivoter de −15° / 15°'],['Page préc. / Page suiv.','Mettre devant / derrière'],['O ou double-clic','Ouvrir / fermer les portes sélectionnées'],['Glisser une porte sur un mur','L\u2019y encastrer (le mur s\u2019ouvre) ; l\u2019en sortir referme le mur']]],
+    ['Affichage',[['V','Outil Déplacer'],['M','Outil Mesurer'],['W','Outil Murs : clic par angle, double-clic ou Entrée pour finir, Retour arrière pour défaire'],['G','Grille'],['T','Vue tactique'],['P','Plan de pose coté (installer la table en vrai)'],['B','Besoins d\u2019impression (décors × fichiers STL)'],['?','Afficher ou masquer cette aide']]]];
   const kp=$('at-keyspanel');kp.innerHTML='<h3>Raccourcis clavier</h3>'+KEYS.map(([t,L])=>`<h4>${t}</h4><dl>${L.map(([k,d])=>`<div><dt>${k.split(', ').map(x=>x.split(' + ').map(y=>`<kbd>${y}</kbd>`).join('+')).join(' ou ')}</dt><dd>${d}</dd></div>`).join('')}</dl>`).join('');
   function keysPanel(show){show=show==null?kp.hidden:show;kp.hidden=!show;$('at-keys').setAttribute('aria-expanded',show);$('at-keys').setAttribute('aria-pressed',show)}
   document.addEventListener('keydown',e=>{if(!visible())return;const k=e.key,lk=(k||'').toLowerCase(),mod=e.ctrlKey||e.metaKey;
@@ -580,9 +686,9 @@ async function mountAtelier(host,opt){
       if(lk==='a'){e.preventDefault();setSel(M.items.map(i=>i.id));return}
       return}
     if(k==='?'){e.preventDefault();keysPanel();return}
-    if(k==='Escape'){if(!kp.hidden){keysPanel(false);return}measure=null;setSel([]);return}
+    if(k==='Escape'){if(!$('at-needs').hidden){needsPanel(false);return}if(!kp.hidden){keysPanel(false);return}measure=null;setSel([]);return}
     if(lk==='v'){setMode('sel');return}if(lk==='m'){setMode('mes');return}if(lk==='w'){setMode('wall');return}
-    if(lk==='g'){$('at-grid').click();return}if(lk==='t'){$('at-tact').click();return}
+    if(lk==='g'){$('at-grid').click();return}if(lk==='p'){$('at-posev').click();return}if(lk==='b'){$('at-needsb').click();return}if(lk==='t'){$('at-tact').click();return}
     if(!I.length)return;
     if(k==='Delete'||k==='Backspace'){e.preventDefault();delSel();return}
     if(lk==='o'){toggleDoors();return}
@@ -593,6 +699,10 @@ async function mountAtelier(host,opt){
   host.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
   $('at-grid').onclick=()=>{grid=!grid;$('at-grid').setAttribute('aria-pressed',grid);req()};
   $('at-tact').onclick=()=>{TACT=!TACT;$('at-tact').setAttribute('aria-pressed',TACT);hint();req()};
+  $('at-posev').onclick=()=>{pose=!pose;$('at-posev').setAttribute('aria-pressed',pose);$('at-posebox').hidden=!pose;poseSig='';hint();req()};
+  function updatePose(){const E=poseEntries(M),rows=E.map(poseText),sig=JSON.stringify(rows)+'|'+[...S].join(',');if(sig===poseSig)return;poseSig=sig;
+    $('at-pose').innerHTML=rows.length?rows.map((r,i)=>`<li data-id="${E[i].it.id}"${S.has(E[i].it.id)?' class="is-sel"':''}><b>${esc(r.num)}</b><span><strong>${esc(r.name)}</strong> · ${esc(r.dims)}<br>${esc(r.line)}</span></li>`).join(''):'<li class="at-muted">Rien à poser.</li>'}
+  $('at-pose').onclick=e=>{const li=e.target.closest('li[data-id]');if(li)setSel([li.dataset.id])};
   $('at-undo').onclick=undo;$('at-redo').onclick=redo;$('at-keys').onclick=()=>keysPanel();
   /* inspecteur */
   function el(tag,attrs,kids){const n=document.createElement(tag);for(const[k,v]of Object.entries(attrs||{})){if(k==='text')n.textContent=v;else n.setAttribute(k,v)}(kids||[]).forEach(k=>n.appendChild(k));return n}
@@ -614,17 +724,30 @@ async function mountAtelier(host,opt){
     const D=I.filter(isDoor);if(D.length){h.appendChild(cap(D.length+(D.length>1?' portes':' porte')));h.appendChild(el('div',{class:'at-row2'},[B('Tout ouvrir',()=>setDoors(D,true)),B('Tout fermer',()=>setDoors(D,false))]))}
     const T=I.filter(i=>i.k!=='f');if(T.length)h.appendChild(tsCtl(T));
     h.appendChild(el('div',{class:'at-acts'},[B('Dupliquer',dupSel),B('Devant',()=>reorder(true)),B('Derrière',()=>reorder(false)),B('Retirer',delSel)]))}
-  function buildWall(h){h.appendChild(el('h3',{text:'Tracer des murs'}));
+  function buildWall(h){h.appendChild(el('h3',{text:wallKind==='door'?'Poser des portes':'Tracer des murs'}));
+    const kb=(t,k)=>{const b=B(t,()=>{if(wallKind===k)return;if(trace)endTrace();wallKind=k;tracePt=null;buildInsp();req()});b.setAttribute('aria-pressed',wallKind===k);return b};
+    h.appendChild(el('div',{class:'at-row2'},[kb('Murs','wall'),kb('Portes','door')]));
+    if(wallKind==='door'){const D=doorTypes();if(!D.find(d=>d.id===doorType)&&D[0])doorType=D[0].id;
+      const sl=el('select',{});D.forEach(d=>{const o=el('option',{value:d.id,text:`${d.name} — ${String(d.width_in).replace('.',',')}″`});if(d.id===doorType)o.selected=true;sl.appendChild(o)});
+      sl.addEventListener('change',()=>{doorType=sl.value;doorWv=null;buildInsp();req()});h.appendChild(el('label',{class:'at-f'},[document.createTextNode('Type de porte'),sl]));
+      const wi=el('input',{type:'number',step:'0.5',min:'0.5',max:'24'});wi.value=doorWidth();wi.addEventListener('input',()=>{const v=parseFloat(String(wi.value).replace(',','.'));if(v>0){doorWv=v;req()}});
+      h.appendChild(el('label',{class:'at-f'},[document.createTextNode('Largeur de la porte (″)'),wi]));
+      h.appendChild(el('p',{class:'at-muted',text:'Clique sur un mur déjà posé : la porte prend son axe et son épaisseur, et le mur est coupé à sa largeur. Tu peux aussi glisser une porte de la palette sur un mur avec l’outil Déplacer ; la ressortir du mur le referme.'}));
+      h.appendChild(el('div',{class:'at-acts'},[B('Terminer',()=>setMode('sel'))]));return}
     const types=Object.values(KAT.decor).filter(d=>LINEAR[d.render_key||d.id]);if(!types.find(d=>d.id===traceType)&&types[0])traceType=types[0].id;
-    const sl=el('select',{});types.forEach(d=>{const o=el('option',{value:d.id,text:`${d.name} — épaisseur ${String(d.depth_in).replace('.',',')}″`});if(d.id===traceType)o.selected=true;sl.appendChild(o)});
+    const sl=el('select',{});types.forEach(d=>{const o=el('option',{value:d.id,text:d.name});if(d.id===traceType)o.selected=true;sl.appendChild(o)});
     sl.addEventListener('change',()=>{traceType=sl.value;buildInsp();req()});h.appendChild(el('label',{class:'at-f'},[document.createTextNode('Type de mur'),sl]));
+    const def=+(KAT.decor[traceType]||{}).depth_in||1,th=el('input',{type:'number',step:'0.1',min:'0.2',max:'6'});th.value=thickOf(traceType);
+    th.addEventListener('input',()=>{const v=parseFloat(String(th.value).replace(',','.'));if(v>=.2){traceThick[traceType]=v;req()}});
+    const rb=B('Par défaut',()=>{delete traceThick[traceType];buildInsp();req()},`Épaisseur du catalogue : ${String(def).replace('.',',')}″`);
+    h.appendChild(el('div',{class:'at-thick'},[el('label',{class:'at-f'},[document.createTextNode(`Épaisseur (″) — catalogue ${String(def).replace('.',',')}″`),th]),rb]));
     const mi=el('input',{});mi.value=(modulesFor(traceType)||[]).join(', ').replace(/\./g,',').replace(/, /g,' ; ');
     const bm=B('Enregistrer',async()=>{const v=mi.value.split(/[;\s]+/).map(x=>parseFloat(x.replace(',','.'))).filter(x=>x>0).sort((a,b)=>b-a);if(!v.length){status('Indique au moins une longueur.');return}
       const d=KAT.decor[traceType];d.defaults=Object.assign({},d.defaults||{},{modules:v});printList();
       if(!sb){status('Longueurs appliquées (non enregistrées : Supabase indisponible).');return}
       const{error}=await sb.from('decor_types').update({defaults:d.defaults}).eq('id',traceType);status(error?'Longueurs appliquées ici, mais pas enregistrées : '+error.message:'Longueurs imprimables enregistrées pour « '+d.name+' ».')});
     h.appendChild(el('label',{class:'at-f'},[document.createTextNode('Longueurs imprimables (″), séparées par ;'),mi]));h.appendChild(el('div',{class:'at-row2'},[bm,B('Terminer le tracé',()=>{endTrace();setMode('sel')})]));
-    h.appendChild(el('p',{class:'at-muted',text:trace?`Tracé en cours : ${trace.pts.length-1} segment(s), ${fIn(traceLen())}.`:'Clique sur la table pour commencer. Chaque segment devient un décor, découpé en modules dans la liste d\u2019impression.'}))}
+    h.appendChild(el('p',{class:'at-muted',text:trace?`Tracé en cours : ${trace.pts.length-1} segment(s), ${fIn(traceLen())}.`:'Clique sur la table pour commencer. Chaque segment devient un décor, découpé en modules dans la liste d’impression. L’épaisseur choisie vaut pour les prochains segments ; pour un mur déjà posé, change sa Largeur.'}))}
   function buildInsp(){const h=$('at-insp');h.innerHTML='';hint();if(mode==='wall'){buildWall(h);return}if(S.size>1){buildMulti(h);return}const it=M.items.find(i=>i.id===sel);
     if(!it){h.appendChild(el('h3',{text:'Sélection'}));h.appendChild(el('p',{class:'at-muted',text:'Clique sur un élément pour le régler, ou glisse dans le vide pour en encadrer plusieurs.'}));return}
     const name=itemName(it);
@@ -703,7 +826,37 @@ async function mountAtelier(host,opt){
       const cnt={},rest=[];let tot=0;I.forEach(i=>{tot+=i.w;const r=decompose(i.w,mods);for(const[m,c]of Object.entries(r.cnt))cnt[m]=(cnt[m]||0)+c;if(r.rest)rest.push(r.rest)});
       const parts=Object.keys(cnt).map(Number).sort((a,b)=>b-a).map(m=>`${cnt[m]} × ${n(m)}`);
       const rs=rest.length?`<em>sur mesure : ${rest.sort((a,b)=>b-a).map(n).join(', ')}</em>`:'';
-      return`<li><b>${esc(d.name||k)} — ${n(tot)} au total</b><span class="at-mods">${parts.join(' · ')||'—'}${rs?'<br>'+rs:''}</span><span>${src(k)}</span></li>`}).join('')+'</ul>'}
+      return`<li><b>${esc(d.name||k)} — ${n(tot)} au total</b><span class="at-mods">${parts.join(' · ')||'—'}${rs?'<br>'+rs:''}</span><span>${src(k)}</span></li>`}).join('')+'</ul><button type="button" class="at-btn" data-needs>Voir les besoins et les fichiers</button>';h.querySelector('[data-needs]').onclick=()=>needsPanel(true);renderNeeds()}
+  /* ---------- panneau Besoins ---------- */
+  let NEED={scope:'all',cat:false,maps:null};
+  async function loadMaps(){if(!sb){NEED.maps=[];return}try{const{data}=await sb.from('battle_maps').select('id,name,layout');NEED.maps=(data||[]).filter(m=>m.id!==M.id).map(m=>({name:m.name,need:needsOf(toItems(m.layout))}))}catch(e){NEED.maps=[]}}
+  function needsPanel(show){const P=$('at-needs');show=show==null?P.hidden:show;P.hidden=!show;$('at-needsb').setAttribute('aria-pressed',show);if(show){NEED.maps=null;renderNeeds();loadMaps().then(renderNeeds)}}
+  $('at-needsb').onclick=()=>needsPanel();
+  function renderNeeds(){const P=$('at-needs');if(P.hidden)return;const nm=v=>String(Math.round(v*100)/100).replace('.',',')+'″';
+    const cur=needsOf(M.items),all=needsMax([{name:M.name||'carte ouverte',need:cur}].concat(NEED.maps||[])),use=NEED.scope==='all'?all:cur;
+    const types=Object.keys(NEED.cat?KAT.decor:use).filter(t=>KAT.decor[t]).sort((a,b)=>{const ca=coverage(a).key==='none'?0:1,cb=coverage(b).key==='none'?0:1;return(ca-cb)||String(KAT.decor[a].name).localeCompare(KAT.decor[b].name)});
+    const used=Object.keys(use),miss=used.filter(t=>coverage(t).key==='none').length,done=used.filter(t=>['imprime','peint'].includes(coverage(t).key)).length,kept=used.filter(t=>['retenu','a_imprimer'].includes(coverage(t).key)).length;
+    const nMaps=(NEED.maps?NEED.maps.length:0)+1;
+    const pieces=t=>{const o=use[t];if(!o)return'<span class="at-muted">pas sur la carte</span>';const mods=modulesFor(t);
+      if(!mods)return`<b>${o.n}</b> ×`;const parts=Object.keys(o.mods).map(Number).sort((a,b)=>b-a).map(m=>`${o.mods[m]} × ${nm(m)}`);
+      return`${parts.join(' · ')||'—'}${o.rest.length?`<br><em>sur mesure : ${o.rest.sort((a,b)=>b-a).map(nm).join(', ')}</em>`:''}<br><span class="at-muted">${nm(o.len)} au total</span>`};
+    const srcs=t=>{const L=KAT.stl.filter(x=>x.type_id===t);if(!L.length)return'<span class="at-need-none">Aucun fichier trouvé : à chercher</span>';
+      return L.map(x=>`<div class="at-src${x.status==='ecarte'?' is-off':''}"><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.title)}</a>${x.author?' <span>— '+esc(x.author)+'</span>':''}
+        <div class="at-src-m"><select data-sid="${esc(x.id||'')}" aria-label="Statut">${Object.entries(STAT).map(([k,v])=>`<option value="${k}"${k===x.status?' selected':''}>${v}</option>`).join('')}</select><span>${esc(x.license||'')}${x.quantity?' · prévu ×'+x.quantity:''}</span></div>
+        ${x.print_notes?`<p>${esc(x.print_notes)}</p>`:''}</div>`).join('')};
+    P.innerHTML=`<div class="at-needs-h"><h3>Besoins d'impression</h3><button type="button" class="at-btn" data-close>Fermer</button></div>
+      <div class="at-row2 at-needs-scope"><button type="button" class="at-btn" data-scope="cur" aria-pressed="${NEED.scope==='cur'}">Cette carte</button><button type="button" class="at-btn" data-scope="all" aria-pressed="${NEED.scope==='all'}">Toutes les cartes${NEED.maps?' ('+nMaps+')':' …'}</button></div>
+      <label class="at-chk"><input type="checkbox" data-cat${NEED.cat?' checked':''}> Afficher aussi les décors du catalogue non utilisés</label>
+      <p class="at-muted">${NEED.scope==='all'?'Les décors resservent d’une partie à l’autre : pour chaque décor, on retient le plus grand besoin d’une seule carte (carte ouverte comprise, même non enregistrée).':'Besoins de la carte ouverte uniquement.'} Les murs sont découpés selon les longueurs imprimables réglées dans l’outil Murs.</p>
+      <p class="at-needs-sum"><b>${used.length}</b> types de décor utilisés · <span class="at-need-none">${miss} sans fichier</span> · ${kept} retenus ou à imprimer · ${done} imprimés ou peints</p>
+      <table class="at-needs-t"><thead><tr><th>Décor</th><th>À imprimer</th><th>Fichiers trouvés et statut</th></tr></thead><tbody>${types.map(t=>{const d=KAT.decor[t],cv=coverage(t),o=use[t];
+        return`<tr><td><b>${esc(d.name)}</b><br><span class="at-cov at-cov-${cv.key}">${cv.txt}</span>${NEED.scope==='all'&&o&&o.by?`<br><span class="at-muted">max : ${esc(o.by)}</span>`:''}</td><td>${pieces(t)}</td><td>${srcs(t)}</td></tr>`}).join('')||'<tr><td colspan="3" class="at-muted">Aucun décor posé.</td></tr>'}</tbody></table>`;
+    P.querySelector('[data-close]').onclick=()=>needsPanel(false);
+    P.querySelectorAll('[data-scope]').forEach(b=>b.onclick=()=>{NEED.scope=b.dataset.scope;renderNeeds()});
+    P.querySelector('[data-cat]').onchange=e=>{NEED.cat=e.target.checked;renderNeeds()};
+    P.querySelectorAll('select[data-sid]').forEach(sl=>sl.onchange=async()=>{const x=KAT.stl.find(y=>String(y.id)===sl.dataset.sid);if(!x)return;const old=x.status;x.status=sl.value;printList();
+      if(!sb||!x.id){status('Statut changé ici, mais pas enregistré (Supabase indisponible).');renderNeeds();return}
+      const{error}=await sb.from('stl_sources').update({status:sl.value}).eq('id',x.id);if(error){x.status=old;status('Statut non enregistré : '+error.message)}else status('« '+x.title+' » : '+STAT[x.status]+'.');renderNeeds()})}
   /* export / import */
   function download(name,blob){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},500)}
   $('at-json').onclick=()=>{const out={name:M.name,edition:'V11',acte:M.acte,partie:M.partie,location_ref:M.location_ref,set_id:M.set_id,width_in:M.w,depth_in:M.h,biome:M.biome,layout:toLayout(M.items)};download(slug(M.name)+'.json',new Blob([JSON.stringify(out,null,2)],{type:'application/json'}))};
@@ -711,13 +864,23 @@ async function mountAtelier(host,opt){
   $('at-file').onchange=async e=>{const f=e.target.files[0];if(!f)return;if(!guard()){e.target.value='';return}try{const t=JSON.parse(await f.text());
       const items=toItems(t.layout||t.items||t);if(!items.length)throw 0;
       loadInto({id:null,name:t.name||'Table importée',edition:'V11',acte:t.acte||'1',partie:t.partie||1,location_ref:t.location_ref||'',set_id:t.set_id||'',w:+(t.width_in||t.w||44),h:+(t.depth_in||t.h||30),biome:t.biome||'ruine',published:false,notes:t.notes||'',items});status('Table importée : enregistre-la pour la garder.')}catch(err){status('Ce fichier n\u2019est pas une table valide.')}e.target.value=''};
-  $('at-png').onclick=async()=>{if(document.fonts)await document.fonts.ready;const s=24,Mg=1.8*s,F=3*s;const c=document.createElement('canvas');c.width=Math.round(M.w*s+2*Mg);c.height=Math.round(M.h*s+Mg*1.5+F);const g=c.getContext('2d');g.fillStyle='#0A0C0E';g.fillRect(0,0,c.width,c.height);
+  function poseSheet(){const s=24,Mg=1.8*s,E=poseEntries(M),rows=E.map(poseText),fs=s*.52,lh=fs*1.4,W=Math.round(M.w*s+2*Mg),cols=W>=1400?2:1,colW=(W-2*Mg-(cols-1)*s)/cols,per=Math.ceil(rows.length/cols),eh=2*lh+fs*.5;
+    const head=3.2*s,legH=s*1.4+per*eh;const c=document.createElement('canvas');c.width=W;c.height=Math.round(Mg+M.h*s+Mg*.9+head+legH+Mg*.6);const g=c.getContext('2d');g.fillStyle='#0A0C0E';g.fillRect(0,0,c.width,c.height);
+    renderMap(g,M,s,Mg,Mg,{dpr:2,pose:true,rulerColor:'#A99C82'});let y=Mg+M.h*s+Mg*.9;g.textAlign='left';g.textBaseline='alphabetic';
+    g.fillStyle='#E8DEC8';g.font=`${s}px Marcellus, Georgia, serif`;g.fillText('Plan de pose — '+M.name,Mg,y+s*.4);
+    g.font=`italic ${s*.55}px "Libre Caslon Text", Georgia, serif`;g.fillStyle='#A99C82';g.fillText(`Table de ${M.w}″ × ${M.h}″ — règles V11. Mesures depuis les deux bords les plus proches ; le bord haut est le haut de ce plan. Croix = centre de la table.`,Mg,y+s*1.3);
+    y+=head;g.fillStyle=POSE_C;g.font=`${s*.6}px Marcellus, Georgia, serif`;g.fillText('FICHE DE POSE',Mg,y);y+=s*.8;
+    const clip=(t,max)=>{if(g.measureText(t).width<=max)return t;while(t.length>4&&g.measureText(t+'…').width>max)t=t.slice(0,-1);return t+'…'};
+    rows.forEach((r,i)=>{const col=Math.floor(i/per),x=Mg+col*(colW+s),yy=y+(i%per)*eh+lh;g.fillStyle=POSE_C;g.font=`${fs}px Marcellus, Georgia, serif`;g.fillText(r.num,x,yy);
+      g.fillStyle='#E8DEC8';g.fillText(clip(r.name+' · '+r.dims,colW-fs*2.4),x+fs*2.4,yy);g.fillStyle='#BDB29B';g.font=`italic ${fs*.95}px "Libre Caslon Text", Georgia, serif`;g.fillText(clip(r.line,colW-fs*2.4),x+fs*2.4,yy+lh)});
+    c.toBlob(b=>download(slug(M.name)+'-plan-de-pose.png',b),'image/png')}
+  $('at-png').onclick=async()=>{if(document.fonts)await document.fonts.ready;if(pose){poseSheet();return}const s=24,Mg=1.8*s,F=3*s;const c=document.createElement('canvas');c.width=Math.round(M.w*s+2*Mg);c.height=Math.round(M.h*s+Mg*1.5+F);const g=c.getContext('2d');g.fillStyle='#0A0C0E';g.fillRect(0,0,c.width,c.height);
     renderMap(g,M,s,Mg,Mg,{dpr:2,rulerColor:'#A99C82'});const y0=Mg+M.h*s+Mg*.9;g.fillStyle='#E8DEC8';g.font=`${s}px Marcellus, Georgia, serif`;g.fillText(M.name,Mg,y0+s*.4);
     g.font=`italic ${s*.6}px "Libre Caslon Text", Georgia, serif`;g.fillStyle='#A99C82';g.fillText(`${ACTE_TXT[M.acte]||''}${M.partie&&M.acte!=='prologue'?', partie '+M.partie:''} — table de ${M.w}″ × ${M.h}″ — règles V11`,Mg,y0+s*1.35);
     c.toBlob(b=>download(slug(M.name)+'.png',b),'image/png')};
   /* démarrage */
   await loadCatalog(sb,true);
-  if(sb&&!KAT.stl.length){try{const st=await sb.from('stl_sources').select('type_id,title,author,status,quantity');KAT.stl=st.data||[]}catch(e){}}
+  if(sb&&!KAT.stl.length){try{const st=await sb.from('stl_sources').select('id,type_id,title,url,author,license,scale,status,quantity,print_notes');KAT.stl=st.data||[]}catch(e){}}
   const ss=$('at-set');KAT.sets.forEach(x=>ss.appendChild(el('option',{value:x.id,text:x.name})));
   const D0=readDraft();ED={host,fit};loadInto(prologueV11());refreshList();offerDraft(D0);
   if(document.fonts)document.fonts.ready.then(()=>{buildPalette();req()});
