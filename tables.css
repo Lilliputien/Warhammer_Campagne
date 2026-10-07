@@ -115,3 +115,8 @@
 .at-src-m select{background:var(--ink2); color:var(--bone); border:1px solid var(--line-strong); padding:2px 4px; font:inherit; font-size:.78rem}
 .at-src p{margin:4px 0 0; color:var(--bone-dim); font-style:italic; font-size:.78rem}
 .at-print + .at-btn, #at-print .at-btn{margin-top:6px}
+/* passages : barre du socle de test */
+.at-gapbar{position:absolute; top:12px; left:12px; z-index:1; display:flex; flex-wrap:wrap; gap:6px 8px; align-items:center; max-width:calc(100% - 24px); background:var(--panel); border:1px solid var(--line-strong); padding:6px 10px; font-size:.84rem; color:var(--bone-dim)}
+.at-gapbar[hidden]{display:none}
+.at-gapbar select{background:var(--ink2); color:var(--bone); border:1px solid var(--line-strong); padding:3px 6px; font:inherit; font-size:.84rem}
+.at-gapn{color:var(--bone)} .at-gapn.is-bad{color:#FF8A80}

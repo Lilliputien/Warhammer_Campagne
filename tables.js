@@ -179,6 +179,12 @@ const CAT={
     draw(ctx,it,rnd,s){withDoor(ctx,it,rnd,s,3,(x,L)=>{ctx.save();ctx.translate(x+L/2,0);tombBlock(ctx,L,it.h,s,3.2,rnd);gaussLine(ctx,-L/2+.3,0,L/2-.3,0,.06,.55);ctx.restore()},d=>tombDoor(ctx,d,it.h,it.open,s,rnd))}},
   door_bunker:{g:'No man\u2019s land',n:'Porte de bunker',w:2.5,h:.8,los:'block',layer:2,door:true,
     draw(ctx,it,rnd,s){bunkerDoor(ctx,it.w,it.h,it.open,s)}},
+  base:{g:'Repères',n:'Socle de test',w:40/25.4,h:40/25.4,los:'none',layer:3,marker:true,
+    draw(ctx,it,rnd,s,pv){const c=(FACTIONS[it.faction]||FACTIONS.neutre).c,hitO=pv?null:baseHitW(it);noShadow(ctx);
+      ctx.beginPath();ctx.ellipse(0,0,it.w/2,it.h/2,0,0,TAU);ctx.fillStyle=hitO?'rgba(220,75,66,.5)':rgba(c,.45);ctx.fill();ctx.lineWidth=Math.max(.05,2/s);ctx.strokeStyle=hitO?'#FF6A5E':c;ctx.stroke();
+      ctx.beginPath();ctx.ellipse(0,0,Math.max(.01,it.w/2-.07),Math.max(.01,it.h/2-.07),0,0,TAU);ctx.lineWidth=Math.max(.03,1/s);ctx.strokeStyle='rgba(0,0,0,.55)';ctx.stroke();
+      ctx.beginPath();ctx.moveTo(0,-it.h/2+.06);ctx.lineTo(0,-it.h/2+Math.min(.35,it.h*.25));ctx.strokeStyle='rgba(232,222,200,.85)';ctx.lineWidth=Math.max(.04,1.5/s);ctx.stroke();
+      if(!pv&&s*it.w>40){ctx.save();ctx.rotate(-it.rot*PI/180);wtext(ctx,0,0,mmTxt(it.mm),.3,s,'#F2EBDD');ctx.restore()}}},
   objective:{g:'Repères',n:'Objectif',w:1.6,h:1.6,los:'none',layer:3,marker:true,round:true,fixed:true,
     draw(ctx,it,rnd,s,pv){const r=.79;if(!pv){ctx.setLineDash([.35,.25]);ctx.strokeStyle='rgba(232,222,200,.6)';ctx.lineWidth=.06;ctx.beginPath();ctx.arc(0,0,r+3,0,TAU);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='rgba(232,222,200,.05)';ctx.fill()}
       shadow(ctx,s,.5);ctx.fillStyle='#151A1F';ctx.beginPath();ctx.arc(0,0,r,0,TAU);ctx.fill();noShadow(ctx);ctx.strokeStyle='#C2D7E3';ctx.lineWidth=.1;ctx.stroke();ctx.beginPath();ctx.arc(0,0,r*.55,0,TAU);ctx.strokeStyle='rgba(194,215,227,.5)';ctx.lineWidth=.05;ctx.stroke();
@@ -240,7 +246,8 @@ const FALLBACK_AREAS=[
 const MARKERS={
   deploy:{n:'Zone de déploiement',w:12,h:8,fac:'loyalistes',draw:'zone'},
   arrival:{n:'Arrivée de renforts',w:2.4,h:2,fac:'necrons',draw:'arrival'},
-  label:{n:'Texte',w:6,h:1.2,draw:'label'}};
+  label:{n:'Texte',w:6,h:1.2,draw:'label'},
+  base:{n:'Socle de test',w:40/25.4,h:40/25.4,fac:'loyalistes',draw:'base'}};
 const KAT={decor:{},areas:{},sets:[],setItems:[],stl:[]};
 function setCatalog(decor,areas){KAT.decor={};(decor&&decor.length?decor:FALLBACK_DECOR).forEach(d=>KAT.decor[d.id]=d);FALLBACK_DECOR.forEach(d=>{if(CAT[d.id].door&&!KAT.decor[d.id])KAT.decor[d.id]=d});KAT.areas={};(areas&&areas.length?areas:FALLBACK_AREAS).forEach(a=>KAT.areas[a.id]=a)}
 setCatalog();
@@ -318,6 +325,40 @@ function unseatDoor(items,door,x,y){const a=door.rot*PI/180,ux=Math.cos(a),uy=Ma
   else if(A)span(A,Ae,e2);else span(B,e1,Be);
   return true}
 
+/* ---------- socles de test et passages : obstacles = décors debout (murs, piliers, portes fermées, murs des ruines), polygones en pouces ---------- */
+const BASES=[['25','25 mm — Garde, Krieg'],['28.5','28,5 mm'],['32','32 mm — Astartes, Guerriers nécrons'],['40','40 mm — Custodes, Terminators'],['50','50 mm'],['60','60 mm'],['80','80 mm'],['90','90 mm'],['100','100 mm'],['130','130 mm'],['60x35','Ovale 60 × 35 mm'],['75x42','Ovale 75 × 42 mm'],['90x52','Ovale 90 × 52 mm'],['105x70','Ovale 105 × 70 mm'],['120x92','Ovale 120 × 92 mm'],['170x105','Ovale 170 × 105 mm']];
+function baseIn(k){const q=String(k||'40').split('x').map(Number);return{w:q[0]/25.4,h:(q[1]||q[0])/25.4}}
+function mmTxt(k){return String(k||'40').replace('x',' × ').replace('.',',')+' mm'}
+const toW=(it,lx,ly)=>{const a=it.rot*PI/180,co=Math.cos(a),si=Math.sin(a);return[it.x+lx*co-ly*si,it.y+lx*si+ly*co]};
+function ngon(it,rx,ry,n){const P=[];for(let i=0;i<n;i++){const t=i/n*TAU;P.push(toW(it,Math.cos(t)*rx,Math.sin(t)*ry))}return P}
+function blockShapes(it){if(it.k!=='f')return[];const d=KAT.decor[it.type]||{},key=d.render_key||it.type,C=CAT[key]||{},layer=+(d.layer!=null?d.layer:(C.layer||2));
+  if(layer<2)return[];const w=it.w,h=it.h,R=(x0,x1,y0,y1)=>[toW(it,x0,y0),toW(it,x1,y0),toW(it,x1,y1),toW(it,x0,y1)];
+  if(C.round)return[ngon(it,w/2,h/2,14)];
+  if(key==='ruin_l'){const t=.55;return[R(-w/2,w/2,-h/2,-h/2+t),R(-w/2,-w/2+t,-h/2,h/2)]}
+  if(key==='ruin_box'){const t=.5;return[R(-w/2,w/2,-h/2,-h/2+t),R(-w/2,w/2,h/2-t,h/2),R(-w/2,-w/2+t,-h/2,h/2),R(w/2-t,w/2,-h/2,h/2)]}
+  if(C.door){if(!it.open)return[R(-w/2,w/2,-h/2,h/2)];const jam=(x0,x1,p)=>[R(x0,x0+p,-h/2,h/2),R(x1-p,x1,-h/2,h/2)];
+    if(C.doorW){const dd=Math.min(C.doorW,w*.6),L=(w-dd)/2,inner=key==='tomb_wall_door'?Math.min(.6,dd*.18):Math.min(.35,dd*.14);return[R(-w/2,-w/2+L,-h/2,h/2),R(w/2-L,w/2,-h/2,h/2)].concat(jam(-dd/2,dd/2,inner))}
+    const pp=key==='gate'?Math.min(.8,w*.2):key==='door_tomb'?Math.min(.6,w*.18):key==='door_bunker'?Math.min(.3,w*.12):Math.min(.35,w*.14);return jam(-w/2,w/2,pp)}
+  return[R(-w/2,w/2,-h/2,h/2)]}
+function bbox(P){let l=1e9,r=-1e9,t=1e9,b=-1e9;P.forEach(q=>{l=Math.min(l,q[0]);r=Math.max(r,q[0]);t=Math.min(t,q[1]);b=Math.max(b,q[1])});return{l,r,t,b}}
+function obstacles(map){const O=[];map.items.forEach(it=>blockShapes(it).forEach(P=>O.push({P,it,bb:bbox(P)})));const W=map.w,H=map.h,e=4;
+  [[[-e,-e],[0,-e],[0,H+e],[-e,H+e]],[[W,-e],[W+e,-e],[W+e,H+e],[W,H+e]],[[-e,-e],[W+e,-e],[W+e,0],[-e,0]],[[-e,H],[W+e,H],[W+e,H+e],[-e,H+e]]].forEach(P=>O.push({P,it:null,edge:true,bb:bbox(P)}));return O}
+/* polygones convexes : séparation stricte (se toucher n'est pas se chevaucher) */
+function overlap(A,B){for(const P of[A,B])for(let i=0;i<P.length;i++){const a=P[i],b=P[(i+1)%P.length],nx=a[1]-b[1],ny=b[0]-a[0],eps=1e-6*Math.hypot(nx,ny);let a0=1e9,a1=-1e9,b0=1e9,b1=-1e9;
+    for(const q of A){const v=q[0]*nx+q[1]*ny;if(v<a0)a0=v;if(v>a1)a1=v}for(const q of B){const v=q[0]*nx+q[1]*ny;if(v<b0)b0=v;if(v>b1)b1=v}if(a1<=b0+eps||b1<=a0+eps)return false}return true}
+function segPt(p,a,b){const dx=b[0]-a[0],dy=b[1]-a[1],L=dx*dx+dy*dy;const t=L?clamp(((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L,0,1):0,q=[a[0]+dx*t,a[1]+dy*t];return{d:Math.hypot(p[0]-q[0],p[1]-q[1]),q}}
+function polyGap(A,B){if(overlap(A,B))return{d:0};let best={d:1e9};const run=(X,Y,sw)=>{for(const p of X)for(let i=0;i<Y.length;i++){const r=segPt(p,Y[i],Y[(i+1)%Y.length]);if(r.d<best.d)best={d:r.d,a:sw?r.q:p,b:sw?p:r.q}}};run(A,B,false);run(B,A,true);return best}
+/* passages plus étroits que D (+ marge) entre deux obstacles ou entre un obstacle et le bord ; écarts de moins de 0,3″ = jointure, ignorés */
+function findGaps(map,D){const O=obstacles(map),G=[],Mx=D+.4;
+  for(let i=0;i<O.length;i++)for(let j=i+1;j<O.length;j++){const A=O[i],B=O[j];if(A.edge&&B.edge)continue;if(A.it&&A.it===B.it)continue;
+    const dx=Math.max(0,A.bb.l-B.bb.r,B.bb.l-A.bb.r),dy=Math.max(0,A.bb.t-B.bb.b,B.bb.t-A.bb.b);if(Math.hypot(dx,dy)>=Mx)continue;
+    const r=polyGap(A.P,B.P);if(r.d<.3||r.d>=Mx)continue;const m=[(r.a[0]+r.b[0])/2,(r.a[1]+r.b[1])/2];
+    if(G.some(g=>Math.hypot(g.m[0]-m[0],g.m[1]-m[1])<.8&&Math.abs(g.d-r.d)<.15))continue;G.push({a:r.a,b:r.b,m,d:r.d,ok:r.d>=D,A:A.it,B:B.it})}
+  return G}
+let CURMAP=null,OBST=null;
+function curObst(){return CURMAP?(OBST||(OBST=obstacles(CURMAP))):null}
+function baseHitW(it,O){O=O||curObst();if(!O)return null;const P=ngon(it,it.w/2,it.h/2,20);for(const o of O)if(overlap(P,o.P))return o;return null}
+
 /* ---------- besoins d'impression : décors posés sur les cartes, croisés avec les sources STL ---------- */
 function needsOf(items){const out={};(items||[]).filter(i=>i.k==='f').forEach(i=>{const mods=modulesFor(i.type),o=out[i.type]=out[i.type]||{n:0,len:0,mods:{},rest:[]};o.n++;
     if(mods){o.len+=i.w;const r=decompose(i.w,mods);for(const[m,c]of Object.entries(r.cnt))o.mods[m]=(o.mods[m]||0)+c;if(r.rest)o.rest.push(r.rest)}});return out}
@@ -373,12 +414,12 @@ function drawPose(c,map,s,ox,oy,o){const E=poseEntries(map),dpr=o.dpr||1,only=o.
   c.restore()}
 function drawOne(c,it,s,ox,oy){TS=+it.ts||1;c.save();c.setTransform(s,0,0,s,ox,oy);c.translate(it.x,it.y);c.rotate(it.rot*PI/180);
   if(it.k==='a')drawArea(c,it,s);else if(it.k==='f')drawFeature(c,it,s);else drawMarker(c,it,s);c.restore();noShadow(c);TS=1}
-function renderMap(c,map,s,ox,oy,o){const W=map.w,H=map.h;CURH=H;o=o||{};const dpr=o.dpr||1;LDPR=dpr;LQ=[];const T0=TACT;if(o.pose)TACT=true;
+function renderMap(c,map,s,ox,oy,o){const W=map.w,H=map.h;CURH=H;o=o||{};const dpr=o.dpr||1;LDPR=dpr;LQ=[];const T0=TACT;if(o.pose)TACT=true;CURMAP=map;OBST=null;
   c.save();c.setTransform(1,0,0,1,0,0);c.shadowColor='rgba(0,0,0,.7)';c.shadowBlur=24*dpr;c.fillStyle='#000';c.fillRect(ox,oy,W*s,H*s);noShadow(c);
   if(TACT){c.fillStyle=o.pose?'#20272b':'#1b2024';c.fillRect(ox,oy,W*s,H*s)}else c.drawImage(ground(map.biome,W,H),ox,oy,W*s,H*s);
   c.beginPath();c.rect(ox,oy,W*s,H*s);c.clip();
   if(o.grid||o.pose){c.lineWidth=1;for(let x=0;x<=W;x++){c.strokeStyle=x%6?'rgba(232,222,200,.07)':'rgba(232,222,200,.17)';c.beginPath();c.moveTo(Math.round(ox+x*s)+.5,oy);c.lineTo(Math.round(ox+x*s)+.5,oy+H*s);c.stroke()}for(let y=0;y<=H;y++){c.strokeStyle=y%6?'rgba(232,222,200,.07)':'rgba(232,222,200,.17)';c.beginPath();c.moveTo(ox,Math.round(oy+y*s)+.5);c.lineTo(ox+W*s,Math.round(oy+y*s)+.5);c.stroke()}}
-  const L=sorted(map.items);for(const it of L)drawOne(c,it,s,ox,oy);
+  const L=sorted(o.hideTest?map.items.filter(i=>i.type!=='base'):map.items);for(const it of L)drawOne(c,it,s,ox,oy);
   for(const it of L)if(it.k==='m'&&it.type==='deploy'){TS=+it.ts||1;c.save();c.setTransform(s,0,0,s,ox,oy);c.translate(it.x,it.y);c.rotate(it.rot*PI/180);drawMarker(c,it,s,'label');c.restore();TS=1}
   flushLabels(c,{x0:ox,y0:oy,x1:ox+W*s,y1:oy+H*s});
   if(o.pose)drawPose(c,map,s,ox,oy,o);
@@ -405,7 +446,7 @@ function toLayout(items){const areas=[],features=[],markers=[];const A=items.fil
   items.forEach(i=>{const b={id:i.id,type:i.type,x:r2(i.x),y:r2(i.y),w:r2(i.w),h:r2(i.h),rot:r2(i.rot)};
     if(i.k==='a')areas.push(Object.assign(b,{obscuring:!!i.obscuring,objective:!!i.objective},i.label?{label:i.label}:{},i.ts&&i.ts!==1?{ts:i.ts}:{}));
     else if(i.k==='f'){const host=A.find(a=>inside(a,[i.x,i.y]));features.push(Object.assign(b,host?{area:host.id}:{},i.open?{open:true}:{}))}
-    else{const m={id:i.id,kind:i.type,x:b.x,y:b.y,w:b.w,h:b.h,rot:b.rot};if(i.faction)m.faction=i.faction;if(i.label)m.label=i.label;if(i.ts&&i.ts!==1)m.ts=i.ts;markers.push(m)}});
+    else{const m={id:i.id,kind:i.type,x:b.x,y:b.y,w:b.w,h:b.h,rot:b.rot};if(i.faction)m.faction=i.faction;if(i.label)m.label=i.label;if(i.mm)m.mm=i.mm;if(i.ts&&i.ts!==1)m.ts=i.ts;markers.push(m)}});
   return{areas,features,markers}}
 
 /* ---------- modèle de départ : prologue Éveillés en V11 ---------- */
@@ -450,6 +491,7 @@ async function mountAtelier(host,opt){
       <button type="button" class="at-btn" id="at-posev" aria-pressed="false" title="Plan de pose coté, pour installer la table en vrai (P)">Plan de pose</button>
       <button type="button" class="at-btn" id="at-undo" title="Ctrl+Z">Annuler</button>
       <button type="button" class="at-btn" id="at-redo" title="Ctrl+Y ou Ctrl+Maj+Z">Rétablir</button>
+      <button type="button" class="at-btn" id="at-gapb" aria-pressed="false" title="Repérer les passages trop étroits pour un socle (K)">Passages</button>
       <button type="button" class="at-btn" id="at-needsb" aria-pressed="false" title="Ce qu'il faut imprimer, croisé avec les fichiers trouvés (B)">Besoins</button>
       <button type="button" class="at-btn" id="at-keys" title="Raccourcis clavier (?)" aria-expanded="false">?</button>
       <button type="button" class="at-btn" id="at-png">PNG</button>
@@ -459,7 +501,7 @@ async function mountAtelier(host,opt){
   </div>
   <div class="at-grid">
     <aside class="at-left" id="at-pal"></aside>
-    <div class="at-stage" id="at-stage"><canvas id="at-cv" aria-label="Table de bataille"></canvas><div class="at-draft" id="at-draft" hidden></div><div class="at-hint" id="at-hint"></div><div class="at-keys" id="at-keyspanel" hidden></div><div class="at-needs" id="at-needs" hidden></div></div>
+    <div class="at-stage" id="at-stage"><canvas id="at-cv" aria-label="Table de bataille"></canvas><div class="at-draft" id="at-draft" hidden></div><div class="at-hint" id="at-hint"></div><div class="at-keys" id="at-keyspanel" hidden></div><div class="at-needs" id="at-needs" hidden></div><div class="at-gapbar" id="at-gapbar" hidden></div></div>
     <aside class="at-right">
       <div id="at-insp"></div>
       <div id="at-posebox" hidden><h3>Fiche de pose</h3><p class="at-muted">Mesures en pouces depuis les deux bords les plus proches. Bord haut = haut du plan. Clique une ligne pour n'afficher que ses cotes.</p><ol class="at-pose" id="at-pose"></ol></div>
@@ -488,14 +530,14 @@ async function mountAtelier(host,opt){
   </div></div>`;
   const $=id=>host.querySelector('#'+id);
   const cv=$('at-cv'),ctx=cv.getContext('2d'),stage=$('at-stage');
-  let pose=false,poseSig='',wallKind='wall',doorType='door_tomb',doorWv=null,traceThick={},trace=null,traceType='tomb_wall',tracePt=null,traceSnap=null,S=new Set(),guides=[],box=null,redoS=[],redoBak=null,CLIP=null,pasteN=0,mouseW=null,M=prologueV11(),sel=null,mode='sel',grid=true,undoS=[],view={s:10,ox:0,oy:0},DPR=1,measure=null,drag=null,dirty=false;
+  let gapOn=false,gapMM='40',pose=false,poseSig='',wallKind='wall',doorType='door_tomb',doorWv=null,traceThick={},trace=null,traceType='tomb_wall',tracePt=null,traceSnap=null,S=new Set(),guides=[],box=null,redoS=[],redoBak=null,CLIP=null,pasteN=0,mouseW=null,M=prologueV11(),sel=null,mode='sel',grid=true,undoS=[],view={s:10,ox:0,oy:0},DPR=1,measure=null,drag=null,dirty=false;
   const status=t=>{$('at-status').textContent=t||''};
   const visible=()=>host.offsetParent!==null;
   function fit(){const r=stage.getBoundingClientRect();if(r.width<10||r.height<10)return;DPR=window.devicePixelRatio||1;cv.width=Math.round(r.width*DPR);cv.height=Math.round(r.height*DPR);const pad=34*DPR,s=Math.max(1,Math.min((cv.width-2*pad)/M.w,(cv.height-2*pad)/M.h));view={s,ox:(cv.width-M.w*s)/2,oy:(cv.height-M.h*s)/2};draw()}
   function req(){if(!dirty){dirty=true;requestAnimationFrame(()=>{dirty=false;draw()})}}
   function corners(it){const a=it.rot*PI/180,co=Math.cos(a),si=Math.sin(a);const tf=(lx,ly)=>[it.x+lx*co-ly*si,it.y+lx*si+ly*co];return{res:tf(it.w/2,it.h/2),rot:tf(0,-it.h/2-1.4),top:tf(0,-it.h/2)}}
   /* poignées d'étirement : (sx,sy) = côté tiré, le côté opposé reste fixe */
-  function handles(it){const a=it.rot*PI/180,co=Math.cos(a),si=Math.sin(a),pw=it.w*view.s/DPR,ph=it.h*view.s/DPR,H=[];
+  function handles(it){if(it.k==='m'&&it.type==='base')return[];const a=it.rot*PI/180,co=Math.cos(a),si=Math.sin(a),pw=it.w*view.s/DPR,ph=it.h*view.s/DPR,H=[];
     for(const sx of[-1,0,1])for(const sy of[-1,0,1]){if(!sx&&!sy)continue;
       if(sx&&sy&&(pw<24||ph<24))continue;      // coins masqués si le décor est trop fin
       if(!sx&&pw<24)continue;
@@ -504,7 +546,7 @@ async function mountAtelier(host,opt){
   function resizeCursor(it,h){let ang=(Math.atan2(h.sy,h.sx)*180/PI+it.rot+360)%180;const c=['ew','nwse','ns','nesw'];return c[Math.round(ang/45)%4]+'-resize'}
   function handleAt(it,p){let best=null,bd=12;for(const h of handles(it)){const d=Math.hypot(h.p[0]-p[0],h.p[1]-p[1])*view.s/DPR;if(d<bd){bd=d;best=h}}return best}
   function draw(){const{s,ox,oy}=view;ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,cv.width,cv.height);
-    renderMap(ctx,M,s,ox,oy,{grid,pose,poseOnly:pose?S:null,dpr:DPR,rulerColor:getComputedStyle(host).getPropertyValue('--bone-dim').trim()||'#A99C82'});if(pose)updatePose();
+    renderMap(ctx,M,s,ox,oy,{grid,pose,poseOnly:pose?S:null,dpr:DPR,rulerColor:getComputedStyle(host).getPropertyValue('--bone-dim').trim()||'#A99C82'});if(pose)updatePose();if(gapOn)drawGaps();
     const SI=selItems();
     for(const it of SI){ctx.save();ctx.setTransform(s,0,0,s,ox,oy);ctx.translate(it.x,it.y);ctx.rotate(it.rot*PI/180);ctx.setLineDash([6/s,4/s]);ctx.strokeStyle='#C2D7E3';ctx.lineWidth=1.5*DPR/s;ctx.strokeRect(-it.w/2-.15,-it.h/2-.15,it.w+.3,it.h+.3);ctx.restore()}
     if(SI.length===1){const k=corners(SI[0]);ctx.save();ctx.setTransform(1,0,0,1,0,0);const P=p=>[ox+p[0]*s,oy+p[1]*s];const t=P(k.top),r=P(k.rot);ctx.strokeStyle='#C2D7E3';ctx.lineWidth=1.5*DPR;ctx.beginPath();ctx.moveTo(t[0],t[1]);ctx.lineTo(r[0],r[1]);ctx.stroke();ctx.fillStyle='#151A1F';ctx.beginPath();ctx.arc(r[0],r[1],6*DPR,0,TAU);ctx.fill();ctx.stroke();ctx.fillStyle='#C2D7E3';ctx.strokeStyle='#151A1F';ctx.lineWidth=1.5*DPR;for(const hd of handles(SI[0])){const q=P(hd.p),z=(hd.sx&&hd.sy?5:4)*DPR;ctx.fillRect(q[0]-z,q[1]-z,2*z,2*z);ctx.strokeRect(q[0]-z,q[1]-z,2*z,2*z)}ctx.restore()}
@@ -514,7 +556,7 @@ async function mountAtelier(host,opt){
     if(mode==='wall')drawTrace();
     if(measure){const a=[ox+measure.a[0]*s,oy+measure.a[1]*s],b=[ox+measure.b[0]*s,oy+measure.b[1]*s],d=Math.hypot(measure.b[0]-measure.a[0],measure.b[1]-measure.a[1]);ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.strokeStyle='rgba(8,10,10,.8)';ctx.lineWidth=5*DPR;ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();ctx.strokeStyle='#E8DEC8';ctx.lineWidth=2*DPR;ctx.stroke();ctx.font=`${14*DPR}px Marcellus, Georgia, serif`;ctx.textAlign='center';ctx.textBaseline='bottom';const tx=(a[0]+b[0])/2,ty=(a[1]+b[1])/2-8*DPR,txt=d.toFixed(1).replace('.',',')+'″';ctx.lineWidth=4*DPR;ctx.strokeStyle='rgba(8,10,10,.85)';ctx.strokeText(txt,tx,ty);ctx.fillStyle='#E8DEC8';ctx.fillText(txt,tx,ty);ctx.restore()}}
   new ResizeObserver(fit).observe(stage);
-  function hint(txt){$('at-hint').textContent=txt||(mode==='mes'?'Glisse sur la table pour mesurer.':mode==='wall'?(wallKind==='door'?'Survole un mur : la porte s\u2019aligne dessus et prend son épaisseur. Clic : la poser, le mur s\u2019ouvre à sa largeur.':trace?'Clique pour poser l\u2019angle suivant. Double-clic ou Entrée : finir. Retour arrière : effacer le dernier segment.':'Clique pour poser le début du mur. Angles calés à 45° (Maj : libre), Alt : sans grille. Un clic sur l\u2019extrémité d\u2019un mur s\u2019y raccroche.'):S.size>1?S.size+' éléments sélectionnés. Glisse l\u2019un d\u2019eux pour tout déplacer ; Maj+clic ajoute ou retire ; Suppr retire.':pose&&!S.size?'Plan de pose : tout est numéroté ; les zones et les décors hors zone sont cotés depuis les bords les plus proches. Clique un élément ou une ligne de la fiche pour voir ses cotes (Maj+clic pour en cumuler) ; PNG exporte le plan avec la fiche complète.':sel?'Rond : pivoter. Carrés : étirer, le côté opposé reste fixe (Ctrl : depuis le centre). Suppr : retirer.':TACT?'Vue tactique : zone pleine = Obscurcissante, pointillée = sans blocage, liseré doré = objectif ; hauteur affichée sur les décors de 3″ et plus (Tir plongeant).':'Glisse dans le vide pour sélectionner plusieurs éléments (Ctrl+glisser : depuis n\u2019importe où). Pose d\u2019abord les zones de terrain, puis les décors dessus.')}
+  function hint(txt){$('at-hint').textContent=txt||(mode==='mes'?'Glisse sur la table pour mesurer.':mode==='wall'?(wallKind==='door'?'Survole un mur : la porte s\u2019aligne dessus et prend son épaisseur. Clic : la poser, le mur s\u2019ouvre à sa largeur.':trace?'Clique pour poser l\u2019angle suivant. Clic droit, double-clic ou Entrée : finir ce mur (le suivant repart de zéro). Retour arrière : effacer le dernier segment.':'Clique pour poser le début du mur. Angles calés à 45° (Maj : libre), Alt : sans grille. Un clic sur l\u2019extrémité d\u2019un mur s\u2019y raccroche.'):S.size>1?S.size+' éléments sélectionnés. Glisse l\u2019un d\u2019eux pour tout déplacer ; Maj+clic ajoute ou retire ; Suppr retire.':gapOn&&!S.size?'Passages : en rouge, plus étroit que le socle choisi ; en orange, il passe avec moins de 0,4\u2033 de marge. Les décors au sol (cratères, gravats, tranchées) ne bloquent pas ; une porte fermée bloque. Pour un ovale, c\u2019est la petite largeur qui compte. Pose un Socle de test (Repères) pour essayer un passage à la main.':pose&&!S.size?'Plan de pose : tout est numéroté ; les zones et les décors hors zone sont cotés depuis les bords les plus proches. Clique un élément ou une ligne de la fiche pour voir ses cotes (Maj+clic pour en cumuler) ; PNG exporte le plan avec la fiche complète.':sel?'Rond : pivoter. Carrés : étirer, le côté opposé reste fixe (Ctrl : depuis le centre). Suppr : retirer.':TACT?'Vue tactique : zone pleine = Obscurcissante, pointillée = sans blocage, liseré doré = objectif ; hauteur affichée sur les décors de 3″ et plus (Tir plongeant).':'Glisse dans le vide pour sélectionner plusieurs éléments (Ctrl+glisser : depuis n\u2019importe où). Pose d\u2019abord les zones de terrain, puis les décors dessus.')}
   /* palette */
   function previewCanvas(drawFn,w,h,bg){const pc=document.createElement('canvas');pc.width=176;pc.height=112;const c=pc.getContext('2d');c.fillStyle=bg;c.fillRect(0,0,176,112);const sc=Math.min(150/w,88/h,40);drawFn(c,sc);return pc}
   function buildPalette(){const host2=$('at-pal');host2.innerHTML='';
@@ -527,7 +569,7 @@ async function mountAtelier(host,opt){
     const doorD=Object.values(KAT.decor).filter(d=>{const c=CAT[d.render_key||d.id];return c&&c.door});group('Portes',doorD.map(featE));
     const fams={};Object.values(KAT.decor).forEach(d=>{const c=CAT[d.render_key||d.id];if(c&&c.door)return;(fams[d.family]=fams[d.family]||[]).push(d)});
     Object.keys(fams).forEach(f=>group(FAMILY_LABEL[f]||f,fams[f].map(featE)));
-    group('Repères',Object.entries(MARKERS).map(([k,m])=>{const it={id:'pv-'+k,k:'m',type:k,x:0,y:0,w:m.w,h:m.h,rot:0,faction:m.fac};return{n:m.n,pc:previewCanvas((c,sc)=>{c.setTransform(sc,0,0,sc,88,56);CAT[m.draw].draw(c,it,null,sc,true);c.setTransform(1,0,0,1,0,0)},m.w,m.h,'#1b2024'),add:()=>addItem({k:'m',type:k,w:m.w,h:m.h,faction:m.fac,label:k==='label'?'Texte':''})}}))}
+    group('Repères',Object.entries(MARKERS).map(([k,m])=>{const it={id:'pv-'+k,k:'m',type:k,x:0,y:0,w:m.w,h:m.h,rot:0,faction:m.fac};return{n:m.n,pc:previewCanvas((c,sc)=>{c.setTransform(sc,0,0,sc,88,56);CAT[m.draw].draw(c,it,null,sc,true);c.setTransform(1,0,0,1,0,0)},m.w,m.h,'#1b2024'),add:()=>addItem(Object.assign({k:'m',type:k,w:m.w,h:m.h,faction:m.fac,label:k==='label'?'Texte':''},k==='base'?{mm:'40'}:{}))}}))}
   /* état */
   const snapS=()=>JSON.stringify({m:M,s:[...S]});
   function pushUndo(){undoS.push(snapS());if(undoS.length>80)undoS.shift();redoBak=redoS;redoS=[]}
@@ -621,13 +663,16 @@ async function mountAtelier(host,opt){
     if(tracePt){const r=P(tracePt);ctx.strokeStyle=traceSnap?'#E06CC4':'#C2D7E3';ctx.lineWidth=2*DPR;ctx.beginPath();ctx.arc(r[0],r[1],(traceSnap?8:5)*DPR,0,TAU);ctx.stroke();
       if(traceSnap){ctx.font=`${11*DPR}px Marcellus, Georgia, serif`;ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillStyle='#E06CC4';ctx.fillText(traceSnap==='fermer'?'fermer':'raccord',r[0]+11*DPR,r[1])}}
     ctx.restore()}
-  cv.addEventListener('pointerdown',e=>{if(mode!=='wall')return;e.stopImmediatePropagation();if(wallKind==='door'){placeDoor(toWorld(e));return}const p=traceSnapPt(toWorld(e),e);
+  cv.addEventListener('pointerdown',e=>{if(mode!=='wall')return;e.stopImmediatePropagation();
+    if(e.button===2){if(wallKind!=='door'&&trace){const n=trace.pts.length-1;endTrace();tracePt=traceSnapPt(toWorld(e),e);req();status(n>0?(n>1?n+' murs tracés':'1 mur tracé')+'. Clique pour commencer un nouveau mur, indépendant du précédent.':'Tracé annulé.')}return}
+    if(e.button>0)return;if(wallKind==='door'){placeDoor(toWorld(e));return}const p=traceSnapPt(toWorld(e),e);
     if(!trace){trace={pts:[p]};tracePt=p;buildInsp();req();return}
     const last=trace.pts[trace.pts.length-1];if(!addWall(last,p))return;
     if(traceSnap==='fermer'){trace.pts.push(p);endTrace();return}
-    trace.pts.push(p);buildInsp();hint(`Total tracé : ${fIn(traceLen())}. Double-clic ou Entrée pour finir, Retour arrière pour effacer le dernier segment.`);req()});
+    trace.pts.push(p);buildInsp();hint(`Total tracé : ${fIn(traceLen())}. Clic droit, double-clic ou Entrée pour finir ce mur, Retour arrière pour effacer le dernier segment.`);req()});
   cv.addEventListener('dblclick',e=>{if(mode==='wall'){e.stopImmediatePropagation();endTrace()}});
-  cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);const p=toWorld(e);
+  cv.addEventListener('contextmenu',e=>{if(mode==='wall')e.preventDefault()});
+  cv.addEventListener('pointerdown',e=>{if(e.button===2)return;cv.setPointerCapture(e.pointerId);const p=toWorld(e);
     if(mode==='mes'){measure={a:[snap(p[0],e.altKey),snap(p[1],e.altKey)],b:p};req();return}
     const one=S.size===1?M.items.find(i=>i.id===sel):null;
     if(one){const k=corners(one),d=q=>Math.hypot(q[0]-p[0],q[1]-p[1])*view.s/DPR;if(d(k.rot)<12){pushUndo();drag={kind:'rot',it:one};return}const hd=handleAt(one,p);if(hd){pushUndo();drag={kind:'res',it:one,sx:hd.sx,sy:hd.sy,w0:one.w,h0:one.h,x0:one.x,y0:one.y};return}}
@@ -646,7 +691,7 @@ async function mountAtelier(host,opt){
     if(drag.kind==='move'){const s0=drag.st[it.id];let dx=snap(s0[0]+p[0]-drag.p0[0],e.altKey)-s0[0],dy=snap(s0[1]+p[1]-drag.p0[1],e.altKey)-s0[1];
       if(!drag.moved&&Math.hypot(p[0]-drag.p0[0],p[1]-drag.p0[1])*view.s/DPR<3)return;
       const I=selItems();[dx,dy]=guideSnap(I,drag.st,dx,dy,e.altKey);
-      I.forEach(i=>{i.x=clamp(drag.st[i.id][0]+dx,0,M.w);i.y=clamp(drag.st[i.id][1]+dy,0,M.h)});drag.moved=true;hint(readout(I))}
+      I.forEach(i=>{i.x=clamp(drag.st[i.id][0]+dx,0,M.w);i.y=clamp(drag.st[i.id][1]+dy,0,M.h)});drag.moved=true;hint(readout(I)+(I.length===1&&I[0].type==='base'?' — '+baseStatus(I[0]):''))}
     else if(drag.kind==='rot'){let a=Math.atan2(p[1]-it.y,p[0]-it.x)*180/PI+90;a=e.shiftKey?Math.round(a):Math.round(a/15)*15;it.rot=((a%360)+360)%360}
     else{const D=drag,a=it.rot*PI/180,co=Math.cos(a),si=Math.sin(a),dx=p[0]-D.x0,dy=p[1]-D.y0,lx=dx*co+dy*si,ly=-dx*si+dy*co,mid=e.ctrlKey||e.metaKey;
       let w=D.w0,h=D.h0;
@@ -667,7 +712,7 @@ async function mountAtelier(host,opt){
   const KEYS=[['Sélection',[['Clic','Sélectionner un élément'],['Glisser dans le vide','Encadrer plusieurs éléments'],['Ctrl + glisser','Encadrer depuis n\u2019importe où'],['Maj + clic','Ajouter ou retirer de la sélection'],['Ctrl + A','Tout sélectionner'],['Échap','Désélectionner, fermer cette aide']]],
     ['Édition',[['Ctrl + Z','Annuler'],['Ctrl + Y, Ctrl + Maj + Z','Rétablir'],['Ctrl + C','Copier'],['Ctrl + X','Couper'],['Ctrl + V','Coller (sous la souris si elle est sur la table)'],['Ctrl + D','Dupliquer'],['Suppr, Retour arrière','Retirer'],['Ctrl + S','Enregistrer la carte']]],
     ['Déplacer et tourner',[['Flèches','Déplacer de 0,5″'],['Maj + flèches','Déplacer de 2″'],['Alt + flèches','Déplacer de 0,1″'],['Alt pendant un glisser','Sans aimant (grille et guides)'],['Carrés de la sélection','Étirer, le côté opposé reste fixe'],['Ctrl en étirant','Étirer depuis le centre (les deux côtés)'],['Maj en étirant un coin','Garder les proportions'],['R / Maj + R','Pivoter de 90° / −90°'],['Q / E','Pivoter de −15° / 15°'],['Page préc. / Page suiv.','Mettre devant / derrière'],['O ou double-clic','Ouvrir / fermer les portes sélectionnées'],['Glisser une porte sur un mur','L\u2019y encastrer (le mur s\u2019ouvre) ; l\u2019en sortir referme le mur']]],
-    ['Affichage',[['V','Outil Déplacer'],['M','Outil Mesurer'],['W','Outil Murs : clic par angle, double-clic ou Entrée pour finir, Retour arrière pour défaire'],['G','Grille'],['T','Vue tactique'],['P','Plan de pose coté (installer la table en vrai)'],['B','Besoins d\u2019impression (décors × fichiers STL)'],['?','Afficher ou masquer cette aide']]]];
+    ['Affichage',[['V','Outil Déplacer'],['M','Outil Mesurer'],['W','Outil Murs : clic par angle, clic droit, double-clic ou Entrée pour finir le mur en cours, Retour arrière pour défaire'],['G','Grille'],['T','Vue tactique'],['P','Plan de pose coté (installer la table en vrai)'],['K','Passages : repérer ce qui est trop étroit pour un socle'],['B','Besoins d\u2019impression (décors × fichiers STL)'],['?','Afficher ou masquer cette aide']]]];
   const kp=$('at-keyspanel');kp.innerHTML='<h3>Raccourcis clavier</h3>'+KEYS.map(([t,L])=>`<h4>${t}</h4><dl>${L.map(([k,d])=>`<div><dt>${k.split(', ').map(x=>x.split(' + ').map(y=>`<kbd>${y}</kbd>`).join('+')).join(' ou ')}</dt><dd>${d}</dd></div>`).join('')}</dl>`).join('');
   function keysPanel(show){show=show==null?kp.hidden:show;kp.hidden=!show;$('at-keys').setAttribute('aria-expanded',show);$('at-keys').setAttribute('aria-pressed',show)}
   document.addEventListener('keydown',e=>{if(!visible())return;const k=e.key,lk=(k||'').toLowerCase(),mod=e.ctrlKey||e.metaKey;
@@ -688,7 +733,7 @@ async function mountAtelier(host,opt){
     if(k==='?'){e.preventDefault();keysPanel();return}
     if(k==='Escape'){if(!$('at-needs').hidden){needsPanel(false);return}if(!kp.hidden){keysPanel(false);return}measure=null;setSel([]);return}
     if(lk==='v'){setMode('sel');return}if(lk==='m'){setMode('mes');return}if(lk==='w'){setMode('wall');return}
-    if(lk==='g'){$('at-grid').click();return}if(lk==='p'){$('at-posev').click();return}if(lk==='b'){$('at-needsb').click();return}if(lk==='t'){$('at-tact').click();return}
+    if(lk==='g'){$('at-grid').click();return}if(lk==='p'){$('at-posev').click();return}if(lk==='k'){$('at-gapb').click();return}if(lk==='b'){$('at-needsb').click();return}if(lk==='t'){$('at-tact').click();return}
     if(!I.length)return;
     if(k==='Delete'||k==='Backspace'){e.preventDefault();delSel();return}
     if(lk==='o'){toggleDoors();return}
@@ -699,6 +744,7 @@ async function mountAtelier(host,opt){
   host.querySelectorAll('[data-mode]').forEach(b=>b.addEventListener('click',()=>setMode(b.dataset.mode)));
   $('at-grid').onclick=()=>{grid=!grid;$('at-grid').setAttribute('aria-pressed',grid);req()};
   $('at-tact').onclick=()=>{TACT=!TACT;$('at-tact').setAttribute('aria-pressed',TACT);hint();req()};
+  $('at-gapb').onclick=()=>setGap();
   $('at-posev').onclick=()=>{pose=!pose;$('at-posev').setAttribute('aria-pressed',pose);$('at-posebox').hidden=!pose;poseSig='';hint();req()};
   function updatePose(){const E=poseEntries(M),rows=E.map(poseText),sig=JSON.stringify(rows)+'|'+[...S].join(',');if(sig===poseSig)return;poseSig=sig;
     $('at-pose').innerHTML=rows.length?rows.map((r,i)=>`<li data-id="${E[i].it.id}"${S.has(E[i].it.id)?' class="is-sel"':''}><b>${esc(r.num)}</b><span><strong>${esc(r.name)}</strong> · ${esc(r.dims)}<br>${esc(r.line)}</span></li>`).join(''):'<li class="at-muted">Rien à poser.</li>'}
@@ -756,7 +802,11 @@ async function mountAtelier(host,opt){
     if(isDoor(it)){const i=el('input',{type:'checkbox'});i.checked=!!it.open;const lab=el('p',{class:'at-muted',text:''});const txt=()=>{lab.textContent=it.open?'Ouverte : ne bloque pas la ligne de vue.':'Fermée : bloque la ligne de vue.'};txt();i.addEventListener('change',()=>{pushUndo();it.open=i.checked;txt();req()});h.appendChild(el('label',{class:'at-chk'},[i,document.createTextNode(' Ouverte (touche O)')]));h.appendChild(lab)}
     const num=(lab,key,step,min)=>{const i=el('input',{type:'number',step:String(step),min:String(min??0),'data-k':key});i.value=Math.round(it[key]*100)/100;i.addEventListener('focus',pushUndo);i.addEventListener('input',()=>{const v=parseFloat(i.value);if(!isNaN(v)){it[key]=key==='rot'?((v%360)+360)%360:Math.max(min??0,v);req()}});return el('label',{class:'at-f'},[document.createTextNode(lab),i])};
     h.appendChild(el('div',{class:'at-row3'},[num('X','x',.5),num('Y','y',.5),num('Angle','rot',15)]));
-    h.appendChild(el('div',{class:'at-row2'},[num('Longueur','w',.5,.5),num('Largeur','h',.5,.5)]));
+    if(it.k==='m'&&it.type==='base'){const sl=el('select',{});BASES.forEach(([k,n])=>{const o=el('option',{value:k,text:n});if(k===String(it.mm||'40'))o.selected=true;sl.appendChild(o)});
+      sl.addEventListener('change',()=>{pushUndo();const b=baseIn(sl.value);it.mm=sl.value;it.w=b.w;it.h=b.h;buildInsp();req()});
+      h.appendChild(el('label',{class:'at-f'},[document.createTextNode('Taille du socle'),sl]));h.appendChild(el('p',{class:'at-muted','data-base':'1',text:baseStatus(it)}));
+      h.appendChild(el('div',{class:'at-acts'},[B('Contrôler les passages avec ce socle',()=>{gapMM=String(it.mm||'40');setGap(true)})]))}
+    else h.appendChild(el('div',{class:'at-row2'},[num('Longueur','w',.5,.5),num('Largeur','h',.5,.5)]));
     h.appendChild(cap('Sur la table'));h.appendChild(el('div',{class:'at-row2'},[B('Centrer ↔',()=>alignSel('cx')),B('Centrer ↕',()=>alignSel('cy'))]));
     if(it.k==='a'){const chk=(lab,key)=>{const i=el('input',{type:'checkbox'});i.checked=!!it[key];i.addEventListener('change',()=>{pushUndo();it[key]=i.checked;req()});return el('label',{class:'at-chk'},[i,document.createTextNode(' '+lab)])};h.appendChild(chk('Obscurcissante','obscuring'));h.appendChild(chk('Objectif (zone à contrôler)','objective'))}
     if(it.k==='a'||it.k==='m'){const i=el('input',{});i.value=it.label||'';i.addEventListener('focus',pushUndo);i.addEventListener('input',()=>{it.label=i.value;req()});h.appendChild(el('label',{class:'at-f'},[document.createTextNode('Libellé'),i]));h.appendChild(tsCtl([it]))}
@@ -764,7 +814,7 @@ async function mountAtelier(host,opt){
     const bD=el('button',{type:'button',class:'at-btn',text:'Dupliquer'}),bF=el('button',{type:'button',class:'at-btn',text:'Devant'}),bB=el('button',{type:'button',class:'at-btn',text:'Derrière'}),bX=el('button',{type:'button',class:'at-btn',text:'Retirer'});
     bD.onclick=dupSel;bX.onclick=delSel;bF.onclick=()=>{pushUndo();M.items=M.items.filter(i=>i!==it).concat([it]);req()};bB.onclick=()=>{pushUndo();M.items=[it].concat(M.items.filter(i=>i!==it));req()};
     h.appendChild(el('div',{class:'at-acts'},[bD,bF,bB,bX]))}
-  function syncInsp(){const it=M.items.find(i=>i.id===sel);if(!it)return;host.querySelectorAll('#at-insp input[data-k]').forEach(i=>{if(document.activeElement!==i)i.value=Math.round(it[i.dataset.k]*100)/100})}
+  function syncInsp(){const it=M.items.find(i=>i.id===sel);if(!it)return;const bs=host.querySelector('#at-insp [data-base]');if(bs)bs.textContent=baseStatus(it);host.querySelectorAll('#at-insp input[data-k]').forEach(i=>{if(document.activeElement!==i)i.value=Math.round(it[i.dataset.k]*100)/100})}
   /* formulaire de la carte */
   function syncForm(){$('at-name').value=M.name;$('at-acte').value=M.acte;$('at-partie').value=M.partie||'';$('at-lieu').value=M.location_ref||'';$('at-set').value=M.set_id||'';$('at-w').value=M.w;$('at-h').value=M.h;$('at-biome').value=M.biome;$('at-notes').value=M.notes||'';$('at-pub').checked=!!M.published;$('at-del').disabled=!M.id}
   $('at-name').oninput=e=>{M.name=e.target.value};$('at-acte').onchange=e=>{M.acte=e.target.value};$('at-partie').oninput=e=>{M.partie=parseInt(e.target.value)||null};
@@ -827,6 +877,19 @@ async function mountAtelier(host,opt){
       const parts=Object.keys(cnt).map(Number).sort((a,b)=>b-a).map(m=>`${cnt[m]} × ${n(m)}`);
       const rs=rest.length?`<em>sur mesure : ${rest.sort((a,b)=>b-a).map(n).join(', ')}</em>`:'';
       return`<li><b>${esc(d.name||k)} — ${n(tot)} au total</b><span class="at-mods">${parts.join(' · ')||'—'}${rs?'<br>'+rs:''}</span><span>${src(k)}</span></li>`}).join('')+'</ul><button type="button" class="at-btn" data-needs>Voir les besoins et les fichiers</button>';h.querySelector('[data-needs]').onclick=()=>needsPanel(true);renderNeeds()}
+  /* ---------- socles de test et passages ---------- */
+  function baseStatus(it){const o=baseHitW(it,obstacles(M));return o?'Touche '+(o.edge?'le bord de la table':'« '+itemName(o.it)+' »')+' : ne passe pas ici.':'Passe : aucun contact avec un mur ou un décor debout.'}
+  function setGap(v){gapOn=v==null?!gapOn:v;$('at-gapb').setAttribute('aria-pressed',gapOn);$('at-gapbar').hidden=!gapOn;if(gapOn)buildGapBar();hint();req()}
+  function buildGapBar(){const b=$('at-gapbar');b.innerHTML='';const sl=el('select',{'aria-label':'Socle de test'});BASES.forEach(([k,n])=>{const o=el('option',{value:k,text:n});if(k===gapMM)o.selected=true;sl.appendChild(o)});
+    sl.onchange=()=>{gapMM=sl.value;req()};b.append(el('span',{text:'Passages pour un socle de'}),sl,el('span',{id:'at-gapn',class:'at-gapn'}))}
+  function drawGaps(){const{s,ox,oy}=view,dm=baseIn(gapMM),D=Math.min(dm.w,dm.h),G=findGaps(M,D),P=q=>[ox+q[0]*s,oy+q[1]*s];let nb=0,nt=0;ctx.save();ctx.setTransform(1,0,0,1,0,0);
+    G.forEach(g=>{g.ok?nt++:nb++;const a=P(g.a),b=P(g.b),m=P(g.m),col=g.ok?'#F2B33D':'#FF5E52';ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=3*DPR;ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
+      for(const q of[a,b]){ctx.beginPath();ctx.arc(q[0],q[1],3*DPR,0,TAU);ctx.fill()}
+      ctx.setLineDash([4*DPR,3*DPR]);ctx.lineWidth=1.5*DPR;ctx.beginPath();ctx.arc(m[0],m[1],D*s/2,0,TAU);ctx.stroke();ctx.setLineDash([]);
+      const t=fIn(g.d),fs=12*DPR;ctx.font=`${fs}px Marcellus, Georgia, serif`;ctx.textAlign='center';ctx.textBaseline='middle';const tw=ctx.measureText(t).width+8*DPR;
+      ctx.fillStyle='rgba(11,14,16,.9)';ctx.fillRect(m[0]-tw/2,m[1]-fs*.7,tw,fs*1.4);ctx.fillStyle=col;ctx.fillText(t,m[0],m[1]+DPR*.5)});
+    ctx.restore();const n=$('at-gapn');if(n)n.textContent=G.length?`${nb} trop étroit${nb>1?'s':''} · ${nt} juste${nt>1?'s':''}`:'aucun passage étroit';
+    if(n)n.className='at-gapn'+(nb?' is-bad':'')}
   /* ---------- panneau Besoins ---------- */
   let NEED={scope:'all',cat:false,maps:null};
   async function loadMaps(){if(!sb){NEED.maps=[];return}try{const{data}=await sb.from('battle_maps').select('id,name,layout');NEED.maps=(data||[]).filter(m=>m.id!==M.id).map(m=>({name:m.name,need:needsOf(toItems(m.layout))}))}catch(e){NEED.maps=[]}}
@@ -900,7 +963,7 @@ async function renderPublished(host,opt){if(!host)return;opt=opt||{};const sb=op
     const fig=document.createElement('figure');fig.className='at-map';
     fig.innerHTML=`<figcaption><span class="at-map-t">${esc(m.name)}</span><span class="at-map-m">${esc(ACTE_TXT[m.acte]||m.acte)}${m.partie&&m.acte!=='prologue'?' · partie '+m.partie:''} · ${map.w}″ × ${map.h}″</span><button type="button" class="at-btn" aria-pressed="false">Vue tactique</button></figcaption><div class="at-map-c"><canvas></canvas></div>`;
     host.appendChild(fig);const c=fig.querySelector('canvas'),wrap=fig.querySelector('.at-map-c'),btn=fig.querySelector('button');let tact=false;
-    const paint=()=>{const r=wrap.getBoundingClientRect();if(r.width<10)return;const dpr=window.devicePixelRatio||1;const pad=30*dpr;c.width=Math.round(r.width*dpr);const s=(c.width-2*pad)/map.w;c.height=Math.round(map.h*s+2*pad);c.style.height=(c.height/dpr)+'px';const g=c.getContext('2d');const T=TACT;TACT=tact;renderMap(g,map,s,pad,pad,{dpr,rulerColor:'#A99C82'});TACT=T};
+    const paint=()=>{const r=wrap.getBoundingClientRect();if(r.width<10)return;const dpr=window.devicePixelRatio||1;const pad=30*dpr;c.width=Math.round(r.width*dpr);const s=(c.width-2*pad)/map.w;c.height=Math.round(map.h*s+2*pad);c.style.height=(c.height/dpr)+'px';const g=c.getContext('2d');const T=TACT;TACT=tact;renderMap(g,map,s,pad,pad,{dpr,hideTest:true,rulerColor:'#A99C82'});TACT=T};
     btn.onclick=()=>{tact=!tact;btn.setAttribute('aria-pressed',tact);paint()};
     new ResizeObserver(paint).observe(wrap);if(document.fonts)document.fonts.ready.then(paint)})}
 
