@@ -512,6 +512,7 @@ async function mountAtelier(host,opt){
       <button type="button" class="at-btn" id="at-redo" title="Ctrl+Y ou Ctrl+Maj+Z">Rétablir</button>
       <button type="button" class="at-btn" id="at-gapb" aria-pressed="false" title="Repérer les passages trop étroits pour un socle (K)">Passages</button>
       <button type="button" class="at-btn" id="at-needsb" aria-pressed="false" title="Ce qu'il faut imprimer, croisé avec les fichiers trouvés (B)">Besoins</button>
+      <button type="button" class="at-btn" id="at-libb" aria-pressed="false" title="Bibliothèque des pièces générées, par partie ou par lieu (L)">Pièces</button>
       <button type="button" class="at-btn" id="at-keys" title="Raccourcis clavier (?)" aria-expanded="false">?</button>
       <button type="button" class="at-btn" id="at-png">PNG</button>
       <button type="button" class="at-btn" id="at-json">JSON</button>
@@ -520,7 +521,7 @@ async function mountAtelier(host,opt){
   </div>
   <div class="at-grid">
     <aside class="at-left" id="at-pal"></aside>
-    <div class="at-stage" id="at-stage"><canvas id="at-cv" aria-label="Table de bataille"></canvas><div class="at-draft" id="at-draft" hidden></div><div class="at-hint" id="at-hint"></div><div class="at-keys" id="at-keyspanel" hidden></div><div class="at-needs" id="at-needs" hidden></div><div class="at-gapbar" id="at-gapbar" hidden></div></div>
+    <div class="at-stage" id="at-stage"><canvas id="at-cv" aria-label="Table de bataille"></canvas><div class="at-draft" id="at-draft" hidden></div><div class="at-hint" id="at-hint"></div><div class="at-keys" id="at-keyspanel" hidden></div><div class="at-needs" id="at-needs" hidden></div><div class="at-gapbar" id="at-gapbar" hidden></div><div class="at-needs" id="at-lib" hidden></div><div class="at-needs at-design" id="at-design" hidden></div></div>
     <aside class="at-right">
       <div id="at-insp"></div>
       <div id="at-posebox" hidden><h3>Fiche de pose</h3><p class="at-muted">Mesures en pouces depuis les deux bords les plus proches. Bord haut = haut du plan. Clique une ligne pour n'afficher que ses cotes.</p><ol class="at-pose" id="at-pose"></ol></div>
@@ -542,6 +543,7 @@ async function mountAtelier(host,opt){
       <label class="at-f">Notes de MJ (jamais visibles des joueurs)<textarea id="at-notes"></textarea></label>
       <label class="at-chk"><input type="checkbox" id="at-pub"> Publiée (visible des joueurs) — décochée : brouillon</label>
       <div class="at-row2"><button type="button" class="at-btn at-main" id="at-save">Enregistrer</button><button type="button" class="at-btn" id="at-del">Supprimer</button></div>
+      <div class="at-prep"><button type="button" class="at-btn" id="at-prep" title="Envoie la carte en revue et liste ses pièces dans la bibliothèque">Préparer l'impression</button><p class="at-muted" id="at-prepst"></p><details id="at-review" hidden><summary>Revue d'impression</summary><div></div></details></div>
       <p class="at-dirty" id="at-dirty" hidden>Modifications non enregistrées · copie de secours gardée dans ce navigateur</p>
       <p class="at-status" id="at-status" role="status"></p>
       <h3>Liste d'impression</h3><div id="at-print"></div>
@@ -750,7 +752,7 @@ async function mountAtelier(host,opt){
   const KEYS=[['Sélection',[['Clic','Sélectionner un élément'],['Glisser dans le vide','Encadrer plusieurs éléments'],['Ctrl + glisser','Encadrer depuis n\u2019importe où'],['Maj + clic','Ajouter ou retirer de la sélection'],['Ctrl + A','Tout sélectionner'],['Échap','Désélectionner, fermer cette aide']]],
     ['Édition',[['Ctrl + Z','Annuler'],['Ctrl + Y, Ctrl + Maj + Z','Rétablir'],['Ctrl + C','Copier'],['Ctrl + X','Couper'],['Ctrl + V','Coller (sous la souris si elle est sur la table)'],['Ctrl + D','Dupliquer'],['Suppr, Retour arrière','Retirer'],['Ctrl + S','Enregistrer la carte']]],
     ['Déplacer et tourner',[['Flèches','Déplacer de 0,5″'],['Maj + flèches','Déplacer de 2″'],['Alt + flèches','Déplacer de 0,1″'],['Alt pendant un glisser','Sans aimant (grille et guides)'],['Carrés de la sélection','Étirer, le côté opposé reste fixe'],['Ctrl en étirant','Étirer depuis le centre (les deux côtés)'],['Maj en étirant un coin','Garder les proportions'],['R / Maj + R','Pivoter de 90° / −90°'],['Q / E','Pivoter de −15° / 15°'],['Page préc. / Page suiv.','Mettre devant / derrière'],['O ou double-clic','Ouvrir / fermer les portes sélectionnées'],['Glisser une porte sur un mur','L\u2019y encastrer (le mur s\u2019ouvre) ; l\u2019en sortir referme le mur']]],
-    ['Affichage',[['V','Outil Déplacer'],['M','Outil Mesurer'],['W','Outil Murs : clic par angle, clic droit, double-clic ou Entrée pour finir le mur en cours, Retour arrière pour défaire'],['G','Grille'],['T','Vue tactique'],['P','Plan de pose coté (installer la table en vrai)'],['K','Passages : repérer ce qui est trop étroit pour un socle'],['B','Besoins d\u2019impression (décors × fichiers STL)'],['?','Afficher ou masquer cette aide']]]];
+    ['Affichage',[['V','Outil Déplacer'],['M','Outil Mesurer'],['W','Outil Murs : clic par angle, clic droit, double-clic ou Entrée pour finir le mur en cours, Retour arrière pour défaire'],['G','Grille'],['T','Vue tactique'],['P','Plan de pose coté (installer la table en vrai)'],['K','Passages : repérer ce qui est trop étroit pour un socle'],['L','Bibliothèque des pièces générées (par partie, par lieu)'],['B','Besoins d\u2019impression (décors × fichiers STL)'],['?','Afficher ou masquer cette aide']]]];
   const kp=$('at-keyspanel');kp.innerHTML='<h3>Raccourcis clavier</h3>'+KEYS.map(([t,L])=>`<h4>${t}</h4><dl>${L.map(([k,d])=>`<div><dt>${k.split(', ').map(x=>x.split(' + ').map(y=>`<kbd>${y}</kbd>`).join('+')).join(' ou ')}</dt><dd>${d}</dd></div>`).join('')}</dl>`).join('');
   function keysPanel(show){show=show==null?kp.hidden:show;kp.hidden=!show;$('at-keys').setAttribute('aria-expanded',show);$('at-keys').setAttribute('aria-pressed',show)}
   document.addEventListener('keydown',e=>{if(!visible())return;const k=e.key,lk=(k||'').toLowerCase(),mod=e.ctrlKey||e.metaKey;
@@ -769,9 +771,9 @@ async function mountAtelier(host,opt){
       if(lk==='a'){e.preventDefault();setSel(M.items.map(i=>i.id));return}
       return}
     if(k==='?'){e.preventDefault();keysPanel();return}
-    if(k==='Escape'){if(!$('at-needs').hidden){needsPanel(false);return}if(!kp.hidden){keysPanel(false);return}measure=null;setSel([]);return}
+    if(k==='Escape'){if(!$('at-design').hidden){$('at-design').hidden=true;renderNeeds();return}if(!$('at-lib').hidden){libPanel(false);return}if(!$('at-needs').hidden){needsPanel(false);return}if(!kp.hidden){keysPanel(false);return}measure=null;setSel([]);return}
     if(lk==='v'){setMode('sel');return}if(lk==='m'){setMode('mes');return}if(lk==='w'){setMode('wall');return}
-    if(lk==='g'){$('at-grid').click();return}if(lk==='p'){$('at-posev').click();return}if(lk==='k'){$('at-gapb').click();return}if(lk==='b'){$('at-needsb').click();return}if(lk==='t'){$('at-tact').click();return}
+    if(lk==='g'){$('at-grid').click();return}if(lk==='p'){$('at-posev').click();return}if(lk==='k'){$('at-gapb').click();return}if(lk==='l'){$('at-libb').click();return}if(lk==='b'){$('at-needsb').click();return}if(lk==='t'){$('at-tact').click();return}
     if(!I.length)return;
     if(k==='Delete'||k==='Backspace'){e.preventDefault();delSel();return}
     if(lk==='o'){toggleDoors();return}
@@ -857,7 +859,7 @@ async function mountAtelier(host,opt){
     h.appendChild(el('div',{class:'at-acts'},[bD,bF,bB,bX]))}
   function syncInsp(){const it=M.items.find(i=>i.id===sel);if(!it)return;const bs=host.querySelector('#at-insp [data-base]');if(bs)bs.textContent=baseStatus(it);host.querySelectorAll('#at-insp input[data-k]').forEach(i=>{if(document.activeElement!==i)i.value=Math.round(it[i.dataset.k]*100)/100})}
   /* formulaire de la carte */
-  function syncForm(){$('at-name').value=M.name;$('at-acte').value=M.acte;$('at-partie').value=M.partie||'';$('at-lieu').value=M.location_ref||'';$('at-set').value=M.set_id||'';$('at-w').value=M.w;$('at-h').value=M.h;$('at-biome').value=M.biome;$('at-notes').value=M.notes||'';$('at-pub').checked=!!M.published;$('at-del').disabled=!M.id}
+  function syncForm(){if(typeof paintPrep==='function')setTimeout(paintPrep,0);$('at-name').value=M.name;$('at-acte').value=M.acte;$('at-partie').value=M.partie||'';$('at-lieu').value=M.location_ref||'';$('at-set').value=M.set_id||'';$('at-w').value=M.w;$('at-h').value=M.h;$('at-biome').value=M.biome;$('at-notes').value=M.notes||'';$('at-pub').checked=!!M.published;$('at-del').disabled=!M.id}
   $('at-name').oninput=e=>{M.name=e.target.value};$('at-acte').onchange=e=>{M.acte=e.target.value};$('at-partie').oninput=e=>{M.partie=parseInt(e.target.value)||null};
   $('at-lieu').onchange=e=>{M.location_ref=e.target.value};$('at-set').onchange=e=>{M.set_id=e.target.value;buildPalette()};
   $('at-biome').onchange=e=>{pushUndo();M.biome=e.target.value;req()};$('at-notes').oninput=e=>{M.notes=e.target.value};$('at-pub').onchange=e=>{M.published=e.target.checked};
@@ -933,10 +935,107 @@ async function mountAtelier(host,opt){
       ctx.fillStyle='rgba(11,14,16,.9)';ctx.fillRect(m[0]-tw/2,m[1]-fs*.7,tw,fs*1.4);ctx.fillStyle=col;ctx.fillText(t,m[0],m[1]+DPR*.5)});
     ctx.restore();const n=$('at-gapn');if(n)n.textContent=G.length?`${nb} trop étroit${nb>1?'s':''} · ${nt} juste${nt>1?'s':''}`:'aucun passage étroit';
     if(n)n.className='at-gapn'+(nb?' is-bad':'')}
+  /* ---------- pièces générées : entrée par lieu (piece_designs) et par partie (map_pieces) ---------- */
+  const DSTAT={brouillon:'brouillon',demande:'génération demandée',genere:'générée',valide:'validée',archive:'archivée'};
+  const DCOV={brouillon:'a_evaluer',demande:'retenu',genere:'retenu',valide:'imprime',archive:'a_evaluer'};
+  const PSTAT={a_preparer:'revue demandée',revue_faite:'revue faite',en_impression:'en impression',imprimee:'imprimée'};
+  const PARAMS_DEF=[['style','Style',{sobre:'Sobre',grave:'Gravé (glyphes)',monumental:'Monumental'}],
+    ['degats','Dégâts',{aucun:'Aucun',leger:'Légers',fort:'Forts (brèches)'}],
+    ['panneaux','Panneaux (murs)',{rect:'Rectangulaires',ogive:'En ogive',hexa:'Hexagonaux',aucun:'Lisses'}],
+    ['aimants','Assemblage',{'6x3':'Aimants 6 × 3 mm','5x2':'Aimants 5 × 2 mm',laiton:'Tiges de laiton 2 mm',aucun:'Aucun'}],
+    ['led','Canaux pour LED',{non:'Non',oui:'Oui'}]];
+  const PLACES=systemPlaces(sys);
+  const placeName=id=>{const q=PLACES.find(x=>x.id===id);return q?q.n.trim():(id||'Sans lieu')};
+  const LIB={designs:[],files:[],mapPieces:[],maps:[],prints:[],requests:[]};
+  async function loadLib(){if(!sb)return;try{const r=await Promise.all([sb.from('piece_designs').select('*').order('updated_at',{ascending:false}),sb.from('piece_files').select('*'),sb.from('map_pieces').select('*'),
+      sb.from('battle_maps').select('id,name,acte,partie,location_ref'),sb.from('map_print').select('*'),sb.from('piece_requests').select('*').order('created_at',{ascending:false})]);
+    [LIB.designs,LIB.files,LIB.mapPieces,LIB.maps,LIB.prints,LIB.requests]=r.map(x=>x.data||[])}catch(e){}paintPrep()}
+  const mapLabel=m=>`${ACTE_TXT[m.acte]||m.acte}${m.partie&&m.acte!=='prologue'?' · partie '+m.partie:''} — ${m.name}`;
+  const usedIn=id=>LIB.mapPieces.filter(r=>r.design_id===id).map(r=>LIB.maps.find(m=>m.id===r.map_id)).filter(Boolean);
+  function curNeeds(){const o={};M.items.filter(i=>i.k==='f').forEach(i=>{const r=o[i.type]=o[i.type]||{n:0,lengths:[]};r.n++;if(modulesFor(i.type))r.lengths.push(Math.round(i.w*100)/100)});Object.values(o).forEach(r=>r.lengths.sort((a,b)=>b-a));return o}
+  const nowIso=()=>new Date().toISOString();
+  /* préparer l'impression : liste les pièces de la carte (entrée par partie) et demande la revue */
+  function paintPrep(){const st=$('at-prepst'),rv=$('at-review');if(!st)return;const q=M.id&&LIB.prints.find(x=>x.map_id===M.id);
+    st.textContent=!M.id?'Enregistre la carte pour pouvoir la préparer.':q?'Impression : '+PSTAT[q.status]+(q.status==='a_preparer'?'. Dis-moi « traite les demandes » dans une conversation.':'.'):'Pas encore préparée.';
+    if(q&&q.review){rv.hidden=false;rv.querySelector('div').textContent=q.review}else rv.hidden=true}
+  $('at-prep').onclick=async()=>{if(!sb){status('Supabase indisponible.');return}if(!M.id){status('Enregistre d’abord la carte.');return}if(isDirty()){status('Enregistre d’abord les modifications de la carte.');return}
+    status('Préparation…');const need=curNeeds(),types=Object.keys(need);
+    let r=types.length?await sb.from('map_pieces').upsert(types.map(t=>({map_id:M.id,type_id:t,quantity:need[t].n,lengths:need[t].lengths,updated_at:nowIso()})),{onConflict:'map_id,type_id'}):{error:null};
+    if(r.error){status('Préparation refusée : '+r.error.message);return}
+    for(const old of LIB.mapPieces.filter(x=>x.map_id===M.id&&!types.includes(x.type_id)))await sb.from('map_pieces').delete().eq('map_id',M.id).eq('type_id',old.type_id);
+    r=await sb.from('map_print').upsert({map_id:M.id,status:'a_preparer',requested_at:nowIso()},{onConflict:'map_id'});if(r.error){status('Préparation refusée : '+r.error.message);return}
+    await sb.from('piece_requests').insert({kind:'revue',map_id:M.id});
+    await loadLib();renderLib();status(`Carte préparée : ${types.length} type${types.length>1?'s':''} de pièce listé${types.length>1?'s':''}, revue demandée. Dis-moi « traite les demandes » dans une conversation.`)};
+  /* fiche d'une pièce générée : réglages, consignes, demande de génération */
+  function openDesign(o){const P=$('at-design');
+    let d=o.design?JSON.parse(JSON.stringify(o.design)):{id:null,type_id:o.typeId,location_ref:M.location_ref||null,name:`${(KAT.decor[o.typeId]||{}).name||o.typeId} — ${placeName(M.location_ref)}`,tags:[],params:{},instructions:'',status:'brouillon',version:1,preview_url:null};
+    d.params=d.params||{};d.tags=d.tags||[];
+    const dec=KAT.decor[d.type_id]||{},files=d.id?LIB.files.filter(f=>f.design_id===d.id&&f.version===d.version):[],linear=!!modulesFor(d.type_id),used=d.id?usedIn(d.id):[];
+    const req=d.id&&LIB.requests.find(q=>q.design_id===d.id&&q.status!=='annule');
+    const lieuOpts='<option value="">Sans lieu</option>'+PLACES.map(q=>`<option value="${esc(q.id)}"${q.id===d.location_ref?' selected':''}>${esc(q.n)}</option>`).join('');
+    const prm=PARAMS_DEF.filter(([k])=>k!=='panneaux'||linear).map(([k,lab,opts])=>`<label class="at-f">${lab}<select data-p="${k}">${Object.entries(opts).map(([v,t])=>`<option value="${v}"${(d.params[k]||Object.keys(opts)[0])===v?' selected':''}>${t}</option>`).join('')}</select></label>`).join('');
+    const num=v=>String(v==null?'':v).replace('.',',');
+    P.innerHTML=`<div class="at-needs-h"><h3>${d.id?'Pièce générée':'Nouvelle pièce générée'} · ${esc(dec.name||d.type_id)}</h3><button type="button" class="at-btn" data-x>Fermer</button></div>
+      <div class="at-ds"><div>
+        <label class="at-f">Nom<input data-f="name" value="${esc(d.name)}"></label>
+        <div class="at-row2"><label class="at-f">Lieu (réutilisation)<select data-f="loc">${lieuOpts}</select></label><label class="at-f">Étiquettes, séparées par des virgules<input data-f="tags" value="${esc(d.tags.join(', '))}" placeholder="tombe, abîmé, LED"></label></div>
+        <div class="at-ds-p">${prm}</div>
+        <label class="at-f">Consignes pour la génération<textarea data-f="instr" placeholder="Ex. : arches plus pointues, une brèche sur un mur sur trois">${esc(d.instructions||'')}</textarea></label>
+        <p class="at-muted">Cotes reprises des cartes : épaisseur ${num(dec.depth_in)}″, hauteur ${num(dec.height_in)}″${linear?', une pièce par longueur posée':''}. Version ${d.version} · ${DSTAT[d.status]||d.status}${req?' · demande '+(req.status==='fait'?'traitée':'en attente'):''}.</p>
+        <div class="at-acts"><button type="button" class="at-btn" data-save>Enregistrer la pièce</button><button type="button" class="at-btn at-main" data-req>Demander la génération</button>${d.id?'<button type="button" class="at-btn" data-dup>Dupliquer en variante</button>':''}</div>
+      </div><div class="at-ds-v">${d.preview_url?`<img src="${esc(d.preview_url)}" alt="Rendu de ${esc(d.name)}">`:'<div class="at-ds-empty">Pas encore de rendu.<br>Il apparaîtra ici après la génération.</div>'}
+        ${files.length?`<h4>Fichiers de la version ${d.version}</h4><ul class="at-ds-files">${files.map(f=>`<li><a href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.label||f.kind)}</a>${f.length_in?' · '+num(f.length_in)+'″':''}</li>`).join('')}</ul>`:''}
+        <h4>Utilisée dans</h4><p class="at-muted">${used.length?used.map(m=>esc(mapLabel(m))).join('<br>'):'Aucune carte pour l’instant.'}</p></div></div>`;
+    P.hidden=false;
+    const read=()=>{d.name=P.querySelector('[data-f="name"]').value.trim()||d.name;d.location_ref=P.querySelector('[data-f="loc"]').value||null;d.tags=P.querySelector('[data-f="tags"]').value.split(',').map(x=>x.trim()).filter(Boolean);
+      d.instructions=P.querySelector('[data-f="instr"]').value;d.params={};P.querySelectorAll('[data-p]').forEach(x=>d.params[x.dataset.p]=x.value)};
+    const saveD=async st=>{if(!sb){status('Supabase indisponible.');return null}read();
+      const row={type_id:d.type_id,location_ref:d.location_ref,name:d.name,tags:d.tags,params:d.params,instructions:d.instructions,status:st||d.status,updated_at:nowIso()};
+      const{data,error}=await(d.id?sb.from('piece_designs').update(row).eq('id',d.id).select('*').single():sb.from('piece_designs').insert(row).select('*').single());
+      if(error){status('Pièce non enregistrée : '+error.message);return null}d=data;
+      if(o.assign&&M.id){const n=curNeeds()[d.type_id]||{n:0,lengths:[]};await sb.from('map_pieces').upsert({map_id:M.id,type_id:d.type_id,design_id:d.id,quantity:n.n,lengths:n.lengths,updated_at:nowIso()},{onConflict:'map_id,type_id'})}
+      await loadLib();return d};
+    P.querySelector('[data-x]').onclick=()=>{P.hidden=true;renderNeeds();renderLib()};
+    P.querySelector('[data-save]').onclick=async()=>{const x=await saveD();if(x){status('Pièce « '+x.name+' » enregistrée.');openDesign({design:x,assign:o.assign})}};
+    P.querySelector('[data-req]').onclick=async()=>{const x=await saveD('demande');if(!x)return;
+      const r=await sb.from('piece_requests').insert({kind:'generation',design_id:x.id,map_id:M.id||null,params:x.params,instructions:x.instructions});await loadLib();
+      status(r.error?'Demande non enregistrée : '+r.error.message:'Génération demandée pour « '+x.name+' ». Dis-moi « traite les demandes » dans une conversation.');openDesign({design:x,assign:o.assign})};
+    const dp=P.querySelector('[data-dup]');if(dp)dp.onclick=()=>{read();openDesign({typeId:d.type_id,assign:o.assign,design:Object.assign({},d,{id:null,name:d.name+' (variante)',status:'brouillon',version:1,preview_url:null})})}}
+  /* bibliothèque : par partie / par lieu */
+  const LIBV={tab:'partie',q:''};
+  function libPanel(show){const P=$('at-lib');show=show==null?P.hidden:show;P.hidden=!show;$('at-libb').setAttribute('aria-pressed',show);if(show){renderLib();loadLib().then(renderLib)}}
+  $('at-libb').onclick=()=>libPanel();
+  function renderLib(){const P=$('at-lib');if(!P||P.hidden)return;const q=LIBV.q.toLowerCase().trim();
+    const tname=t=>(KAT.decor[t]||{}).name||t;
+    const match=d=>!q||[d.name,placeName(d.location_ref),tname(d.type_id)].concat(d.tags||[]).some(x=>String(x).toLowerCase().includes(q));
+    const chip=d=>`<span class="at-cov at-cov-${DCOV[d.status]||'a_evaluer'}">${DSTAT[d.status]||d.status}</span>`;
+    const dLink=d=>`<button type="button" class="at-linkb" data-d="${d.id}">${esc(d.name)}</button>`;
+    let body;
+    if(LIBV.tab==='partie'){const ord={prologue:0,'1':1,'2':2,'3':3,'4':4};
+      body=LIB.maps.slice().sort((a,b)=>((ord[a.acte]??9)-(ord[b.acte]??9))||((a.partie||0)-(b.partie||0))||a.name.localeCompare(b.name)).map(m=>{
+        const rows=LIB.mapPieces.filter(r=>r.map_id===m.id),pr=LIB.prints.find(x=>x.map_id===m.id);
+        const lines=rows.map(r=>{const d=LIB.designs.find(x=>x.id===r.design_id);if(q&&!(d&&match(d))&&!tname(r.type_id).toLowerCase().includes(q))return'';const L=r.lengths||[];
+          return`<tr><td>${esc(tname(r.type_id))}</td><td>${r.quantity} ×${L.length?'<br><span class="at-muted">'+L.map(v=>String(v).replace('.',',')+'″').join(', ')+'</span>':''}</td><td>${d?dLink(d)+' '+chip(d):`<button type="button" class="at-linkb" data-new="${esc(r.type_id)}" data-map="${m.id}">à définir</button>`}</td></tr>`}).join('');
+        if(q&&!lines)return'';
+        return`<section class="at-lib-s"><h4>${esc(mapLabel(m))}${pr?' <span class="at-cov at-cov-retenu">'+PSTAT[pr.status]+'</span>':''}</h4>${rows.length?`<table class="at-needs-t"><thead><tr><th>Décor</th><th>Quantité</th><th>Pièce générée</th></tr></thead><tbody>${lines}</tbody></table>`:'<p class="at-muted">Pas encore préparée pour l’impression.</p>'}</section>`}).join('')||'<p class="at-muted">Aucune carte enregistrée.</p>'}
+    else{const by={};LIB.designs.filter(match).forEach(d=>{(by[d.location_ref||'']=by[d.location_ref||'']||[]).push(d)});
+      body=Object.keys(by).sort((a,b)=>placeName(a).localeCompare(placeName(b))).map(k=>`<section class="at-lib-s"><h4>${esc(placeName(k))}</h4><div class="at-lib-g">${by[k].map(d=>{const u=usedIn(d.id);
+        return`<div class="at-lib-c">${d.preview_url?`<img src="${esc(d.preview_url)}" alt="">`:'<div class="at-lib-ph"></div>'}<div>${dLink(d)}<br><span class="at-muted">${esc(tname(d.type_id))} · v${d.version}</span> ${chip(d)}${(d.tags||[]).length?'<br><span class="at-tags">'+d.tags.map(esc).join(' · ')+'</span>':''}<br><span class="at-muted">${u.length?'Utilisée dans : '+u.map(m=>esc(mapLabel(m))).join(' ; '):'Pas encore utilisée.'}</span></div></div>`}).join('')}</div></section>`).join('')
+        ||'<p class="at-muted">Aucune pièce générée pour l’instant. Crée-en une depuis le panneau Besoins (bouton Personnaliser).</p>'}
+    P.innerHTML=`<div class="at-needs-h"><h3>Bibliothèque de pièces</h3><button type="button" class="at-btn" data-x>Fermer</button></div>
+      <div class="at-lib-bar"><div class="at-row2"><button type="button" class="at-btn" data-tab="partie" aria-pressed="${LIBV.tab==='partie'}">Par partie</button><button type="button" class="at-btn" data-tab="lieu" aria-pressed="${LIBV.tab==='lieu'}">Par lieu</button></div><input type="search" data-q placeholder="Filtrer : nom, lieu, étiquette, type de décor" value="${esc(LIBV.q)}"></div>${body}`;
+    P.querySelector('[data-x]').onclick=()=>libPanel(false);
+    P.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>{LIBV.tab=b.dataset.tab;renderLib()});
+    const qi=P.querySelector('[data-q]');qi.oninput=()=>{LIBV.q=qi.value;const pos=qi.selectionStart;renderLib();const n=$('at-lib').querySelector('[data-q]');n.focus();n.setSelectionRange(pos,pos)};
+    P.querySelectorAll('[data-d]').forEach(b=>b.onclick=()=>openDesign({design:LIB.designs.find(x=>x.id===b.dataset.d),assign:false}));
+    P.querySelectorAll('[data-new]').forEach(b=>b.onclick=()=>{if(b.dataset.map!==M.id){status('Ouvre d’abord cette carte pour lui attribuer une pièce.');return}openDesign({typeId:b.dataset.new,assign:true})})}
+  function genCell(t){const cur=M.id&&LIB.mapPieces.find(r=>r.map_id===M.id&&r.type_id===t),sel=cur&&cur.design_id;
+    const D=LIB.designs.filter(d=>d.type_id===t).sort((a,b)=>((b.location_ref===M.location_ref)-(a.location_ref===M.location_ref))||a.name.localeCompare(b.name)),d=D.find(x=>x.id===sel);
+    return`<select data-gd="${esc(t)}" aria-label="Pièce générée"><option value="">aucune</option>${D.map(x=>`<option value="${x.id}"${x.id===sel?' selected':''}>${esc(x.name)}${x.location_ref!==M.location_ref?' ('+esc(placeName(x.location_ref))+')':''}</option>`).join('')}</select>${d?`<br><span class="at-cov at-cov-${DCOV[d.status]}">${DSTAT[d.status]}</span>`:''}<br><button type="button" class="at-btn" data-gp="${esc(t)}">Personnaliser</button>`}
   /* ---------- panneau Besoins ---------- */
   let NEED={scope:'all',cat:false,maps:null};
   async function loadMaps(){if(!sb){NEED.maps=[];return}try{const{data}=await sb.from('battle_maps').select('id,name,layout');NEED.maps=(data||[]).filter(m=>m.id!==M.id).map(m=>({name:m.name,need:needsOf(toItems(m.layout))}))}catch(e){NEED.maps=[]}}
-  function needsPanel(show){const P=$('at-needs');show=show==null?P.hidden:show;P.hidden=!show;$('at-needsb').setAttribute('aria-pressed',show);if(show){NEED.maps=null;renderNeeds();loadMaps().then(renderNeeds)}}
+  function needsPanel(show){const P=$('at-needs');show=show==null?P.hidden:show;P.hidden=!show;$('at-needsb').setAttribute('aria-pressed',show);if(show){NEED.maps=null;renderNeeds();Promise.all([loadMaps(),loadLib()]).then(renderNeeds)}}
   $('at-needsb').onclick=()=>needsPanel();
   function renderNeeds(){const P=$('at-needs');if(P.hidden)return;const nm=v=>String(Math.round(v*100)/100).replace('.',',')+'″';
     const cur=needsOf(M.items),all=needsMax([{name:M.name||'carte ouverte',need:cur}].concat(NEED.maps||[])),use=NEED.scope==='all'?all:cur;
@@ -955,11 +1054,15 @@ async function mountAtelier(host,opt){
       <label class="at-chk"><input type="checkbox" data-cat${NEED.cat?' checked':''}> Afficher aussi les décors du catalogue non utilisés</label>
       <p class="at-muted">${NEED.scope==='all'?'Les décors resservent d’une partie à l’autre : pour chaque décor, on retient le plus grand besoin d’une seule carte (carte ouverte comprise, même non enregistrée).':'Besoins de la carte ouverte uniquement.'} Les murs sont découpés selon les longueurs imprimables réglées dans l’outil Murs.</p>
       <p class="at-needs-sum"><b>${used.length}</b> types de décor utilisés · <span class="at-need-none">${miss} sans fichier</span> · ${kept} retenus ou à imprimer · ${done} imprimés ou peints</p>
-      <table class="at-needs-t"><thead><tr><th>Décor</th><th>À imprimer</th><th>Fichiers trouvés et statut</th></tr></thead><tbody>${types.map(t=>{const d=KAT.decor[t],cv=coverage(t),o=use[t];
-        return`<tr><td><b>${esc(d.name)}</b><br><span class="at-cov at-cov-${cv.key}">${cv.txt}</span>${NEED.scope==='all'&&o&&o.by?`<br><span class="at-muted">max : ${esc(o.by)}</span>`:''}</td><td>${pieces(t)}</td><td>${srcs(t)}</td></tr>`}).join('')||'<tr><td colspan="3" class="at-muted">Aucun décor posé.</td></tr>'}</tbody></table>`;
+      <table class="at-needs-t"><thead><tr><th>Décor</th><th>À imprimer</th><th>Fichiers trouvés et statut</th><th>Pièce générée</th></tr></thead><tbody>${types.map(t=>{const d=KAT.decor[t],cv=coverage(t),o=use[t];
+        return`<tr><td><b>${esc(d.name)}</b><br><span class="at-cov at-cov-${cv.key}">${cv.txt}</span>${NEED.scope==='all'&&o&&o.by?`<br><span class="at-muted">max : ${esc(o.by)}</span>`:''}</td><td>${pieces(t)}</td><td>${srcs(t)}</td><td>${genCell(t)}</td></tr>`}).join('')||'<tr><td colspan="4" class="at-muted">Aucun décor posé.</td></tr>'}</tbody></table>`;
     P.querySelector('[data-close]').onclick=()=>needsPanel(false);
     P.querySelectorAll('[data-scope]').forEach(b=>b.onclick=()=>{NEED.scope=b.dataset.scope;renderNeeds()});
     P.querySelector('[data-cat]').onchange=e=>{NEED.cat=e.target.checked;renderNeeds()};
+    P.querySelectorAll('select[data-gd]').forEach(sl=>sl.onchange=async()=>{if(!M.id||!sb){status('Enregistre d\u2019abord la carte.');renderNeeds();return}const t=sl.dataset.gd,n=curNeeds()[t]||{n:0,lengths:[]};
+      const{error}=await sb.from('map_pieces').upsert({map_id:M.id,type_id:t,design_id:sl.value||null,quantity:n.n,lengths:n.lengths,updated_at:nowIso()},{onConflict:'map_id,type_id'});
+      status(error?'Choix non enregistré : '+error.message:(sl.value?'Pièce attribuée à cette carte.':'Pièce retirée de cette carte.'));await loadLib();renderNeeds()});
+    P.querySelectorAll('[data-gp]').forEach(b=>b.onclick=()=>{const t=b.dataset.gp,cur=M.id&&LIB.mapPieces.find(r=>r.map_id===M.id&&r.type_id===t),d=cur&&LIB.designs.find(x=>x.id===cur.design_id);openDesign({design:d||null,typeId:t,assign:true})});
     P.querySelectorAll('select[data-sid]').forEach(sl=>sl.onchange=async()=>{const x=KAT.stl.find(y=>String(y.id)===sl.dataset.sid);if(!x)return;const old=x.status;x.status=sl.value;printList();
       if(!sb||!x.id){status('Statut changé ici, mais pas enregistré (Supabase indisponible).');renderNeeds();return}
       const{error}=await sb.from('stl_sources').update({status:sl.value}).eq('id',x.id);if(error){x.status=old;status('Statut non enregistré : '+error.message)}else status('« '+x.title+' » : '+STAT[x.status]+'.');renderNeeds()})}
@@ -988,7 +1091,7 @@ async function mountAtelier(host,opt){
   await loadCatalog(sb,true);
   if(sb&&!KAT.stl.length){try{const st=await sb.from('stl_sources').select('id,type_id,title,url,author,license,scale,status,quantity,print_notes');KAT.stl=st.data||[]}catch(e){}}
   const ss=$('at-set');KAT.sets.forEach(x=>ss.appendChild(el('option',{value:x.id,text:x.name})));
-  const D0=readDraft();ED={host,fit};loadInto(prologueV11());refreshList();offerDraft(D0);
+  const D0=readDraft();ED={host,fit};loadInto(prologueV11());refreshList();loadLib();offerDraft(D0);
   if(document.fonts)document.fonts.ready.then(()=>{buildPalette();req()});
 }
 
