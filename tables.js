@@ -87,6 +87,23 @@ function tombBlock(ctx,w,h,s,e,rnd){shadow(ctx,s,e);ctx.fillStyle='#232c27';rrec
 function gaussLine(ctx,x0,y0,x1,y1,wid,a){ctx.save();ctx.globalCompositeOperation='lighter';ctx.strokeStyle=rgba(GAUSS,a*.35);ctx.lineWidth=wid*4;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(x0,y0);ctx.lineTo(x1,y1);ctx.stroke();ctx.strokeStyle=rgba(GAUSS_B,a);ctx.lineWidth=wid;ctx.stroke();ctx.restore()}
 function glow(ctx,x,y,r,a){ctx.save();ctx.globalCompositeOperation='lighter';const g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,rgba(GAUSS,a));g.addColorStop(.4,rgba(GAUSS,a*.35));g.addColorStop(1,rgba(GAUSS,0));ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,r,0,TAU);ctx.fill();ctx.restore()}
 
+/* pyramide : tiers = 0 (lisse, 4 faces) ou 2 à 6 gradins ; stairs = escalier sur la face avant (bord bas avant rotation) */
+function pyramidDraw(ctx,it,s,rnd){const w=it.w,h=it.h,t=it.tiers==null?3:+it.tiers;let topY=0;
+  shadow(ctx,s,4.5);ctx.fillStyle='#1a211e';ctx.fillRect(-w/2,-h/2,w,h);noShadow(ctx);
+  if(t<2){const C=[[-w/2,-h/2],[w/2,-h/2],[w/2,h/2],[-w/2,h/2]],F=['#3e4d45','#2c3832','#1e2722','#35433b'];
+    for(let i=0;i<4;i++){const a=C[i],b=C[(i+1)%4];ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.lineTo(0,0);ctx.closePath();ctx.fillStyle=F[i];ctx.fill()}
+    ctx.strokeStyle='rgba(0,0,0,.28)';ctx.lineWidth=.03;for(let k=1;k<6;k++){const f=k/6;ctx.strokeRect(-w/2*f,-h/2*f,w*f,h*f)}
+    C.forEach(c=>gaussLine(ctx,c[0]*.94,c[1]*.94,c[0]*.08,c[1]*.08,.05,.6))}
+  else{const ix=w/2/(t+.6),iy=h/2/(t+.6);
+    for(let k=0;k<t;k++){const x=w/2-k*ix,y=h/2-k*iy;shadow(ctx,s,1.3);ctx.fillStyle=mix('#1f2824','#4b5d53',k/(t-1));rrect(ctx,-x,-y,2*x,2*y,.08);ctx.fill();noShadow(ctx);
+      ctx.fillStyle='rgba(255,246,226,.07)';ctx.fillRect(-x+.06,-y+.06,2*x-.12,Math.min(.18,iy*.35));
+      gaussLine(ctx,-x+.25,-y+.12,x-.25,-y+.12,.03,.22+.3*k/t);topY=y-iy}
+    topY=Math.max(0,h/2-(t-1)*iy-iy*.4)}
+  if(it.stairs){const sw=Math.min(w*.2,2.2),y0=t<2?h*.06:h/2-(t-1)*(h/2/(t+.6));ctx.fillStyle='#596b61';ctx.fillRect(-sw/2,y0,sw,h/2-y0);
+    ctx.strokeStyle='rgba(0,0,0,.5)';ctx.lineWidth=.04;for(let y=y0+.3;y<h/2;y+=.32){ctx.beginPath();ctx.moveTo(-sw/2,y);ctx.lineTo(sw/2,y);ctx.stroke()}
+    gaussLine(ctx,-sw/2,y0,-sw/2,h/2,.03,.45);gaussLine(ctx,sw/2,y0,sw/2,h/2,.03,.45)}
+  const r=Math.min(w,h)*(t<2?.07:.24/(t+.6));ctx.save();ctx.rotate(PI/4);ctx.fillStyle='#24302a';ctx.fillRect(-r,-r,2*r,2*r);ctx.fillStyle=rgba(GAUSS_B,.9);ctx.fillRect(-r*.45,-r*.45,r*.9,r*.9);ctx.restore();
+  glow(ctx,0,0,Math.min(w,h)*.28,.5)}
 /* ---------- catalogue ---------- */
 /* ---------- portes : chaque modèle a un état ouvert / fermé (champ open de l'élément) ---------- */
 function hazard(ctx,x,y,w,h){ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();ctx.fillStyle='#1d1b17';ctx.fillRect(x,y,w,h);ctx.strokeStyle='#C9A13A';ctx.lineWidth=.09;for(let k=-h-1;k<w+h+1;k+=.26){ctx.beginPath();ctx.moveTo(x+k,y+h);ctx.lineTo(x+k+h,y);ctx.stroke()}ctx.restore()}
@@ -161,6 +178,8 @@ const CAT={
       ctx.strokeStyle='#3f4d45';ctx.lineWidth=.16;ctx.beginPath();ctx.arc(0,0,r*.78,0,TAU);ctx.stroke();
       for(let i=0;i<3;i++){const a=i/3*TAU-PI/2;gaussLine(ctx,Math.cos(a)*r*.35,Math.sin(a)*r*.35,Math.cos(a)*r*.85,Math.sin(a)*r*.85,.07,.8)}
       ctx.fillStyle=GAUSS_B;ctx.beginPath();for(let i=0;i<3;i++){const a=i/3*TAU-PI/2;i?ctx.lineTo(Math.cos(a)*r*.32,Math.sin(a)*r*.32):ctx.moveTo(Math.cos(a)*r*.32,Math.sin(a)*r*.32)}ctx.closePath();ctx.fill();glow(ctx,0,0,r*.8,.7)}},
+  pyramid:{g:'Tombe nécron',n:'Pyramide',w:10,h:10,los:'block',layer:2,
+    draw(ctx,it,rnd,s){pyramidDraw(ctx,it,s,rnd)}},
   sarco:{g:'Tombe nécron',n:'Sarcophage',w:3,h:1.4,los:'cover',layer:2,
     draw(ctx,it,rnd,s){const{w,h}=it;shadow(ctx,s,1.4);ctx.fillStyle='#29332e';rrect(ctx,-w/2,-h/2,w,h,h*.4);ctx.fill();noShadow(ctx);ctx.fillStyle='#3b4842';rrect(ctx,-w/2+.18,-h/2+.16,w-.36,h-.32,h*.3);ctx.fill();gaussLine(ctx,-w/2+.5,0,w/2-.5,0,.05,.6);ctx.strokeStyle='rgba(0,0,0,.35)';ctx.lineWidth=.03;for(let x=-w/2+.6;x<w/2-.4;x+=.5){ctx.beginPath();ctx.moveTo(x,-h*.28);ctx.lineTo(x,-h*.12);ctx.stroke()}}},
   niche:{g:'Tombe nécron',n:'Niche de stase',w:3,h:1.6,los:'block',layer:2,
@@ -234,7 +253,7 @@ function ground(biome,W,H){const key=biome+W+'x'+H;if(groundCache.has(key))retur
 let CURH=30;
 const FAMILY_LABEL={tombe:'Tombe nécron',ruines:'Ruines urbaines',no_mans_land:'No man\u2019s land'};
 // Valeurs de secours si Supabase ne répond pas (mêmes valeurs que les tables decor_types et area_types)
-const FB_H={ruin_l:6,ruin_box:5,wall:3,muraille:6,container:3,rubble:1,crater:0,trench:0,sandbags:1,barricade:1.5,wire:1,tomb_wall:4.1,pillar:5,pylon:8,sarco:1.5,niche:4,gate:4,door_hive:3,wall_door:3,door_tomb:4.1,tomb_wall_door:4.1,door_bunker:2};
+const FB_H={ruin_l:6,ruin_box:5,wall:3,muraille:6,container:3,rubble:1,crater:0,trench:0,sandbags:1,barricade:1.5,wire:1,tomb_wall:4.1,pillar:5,pylon:8,pyramid:6,sarco:1.5,niche:4,gate:4,door_hive:3,wall_door:3,door_tomb:4.1,tomb_wall_door:4.1,door_bunker:2};
 const FALLBACK_DECOR=Object.keys(CAT).filter(k=>!CAT[k].marker).map(k=>({id:k,name:CAT[k].n,family:CAT[k].g==='Tombe nécron'?'tombe':CAT[k].g==='Ruines urbaines'?'ruines':'no_mans_land',width_in:k==='pylon'?5:CAT[k].w,depth_in:k==='pylon'?5:CAT[k].h,height_in:FB_H[k]||0,layer:CAT[k].layer,render_key:k}));
 const FALLBACK_AREAS=[
   {id:'large_rect',name:'Grand rectangle',shape:'rect',width_in:7,depth_in:11.5,obscuring_default:true,official:true},
@@ -249,7 +268,7 @@ const MARKERS={
   label:{n:'Texte',w:6,h:1.2,draw:'label'},
   base:{n:'Socle de test',w:40/25.4,h:40/25.4,fac:'loyalistes',draw:'base'}};
 const KAT={decor:{},areas:{},sets:[],setItems:[],stl:[]};
-function setCatalog(decor,areas){KAT.decor={};(decor&&decor.length?decor:FALLBACK_DECOR).forEach(d=>KAT.decor[d.id]=d);FALLBACK_DECOR.forEach(d=>{if(CAT[d.id].door&&!KAT.decor[d.id])KAT.decor[d.id]=d});KAT.areas={};(areas&&areas.length?areas:FALLBACK_AREAS).forEach(a=>KAT.areas[a.id]=a)}
+function setCatalog(decor,areas){KAT.decor={};(decor&&decor.length?decor:FALLBACK_DECOR).forEach(d=>KAT.decor[d.id]=d);FALLBACK_DECOR.forEach(d=>{if((CAT[d.id].door||d.id==='pyramid')&&!KAT.decor[d.id])KAT.decor[d.id]=d});KAT.areas={};(areas&&areas.length?areas:FALLBACK_AREAS).forEach(a=>KAT.areas[a.id]=a)}
 setCatalog();
 let CAT_P=null;
 function loadCatalog(sb,admin){if(CAT_P)return CAT_P;CAT_P=(async()=>{if(!sb)return;try{
@@ -445,7 +464,7 @@ function inside(a,p){const r=-a.rot*PI/180,dx=p[0]-a.x,dy=p[1]-a.y;const lx=dx*M
 function toLayout(items){const areas=[],features=[],markers=[];const A=items.filter(i=>i.k==='a');const r2=v=>Math.round(v*100)/100;
   items.forEach(i=>{const b={id:i.id,type:i.type,x:r2(i.x),y:r2(i.y),w:r2(i.w),h:r2(i.h),rot:r2(i.rot)};
     if(i.k==='a')areas.push(Object.assign(b,{obscuring:!!i.obscuring,objective:!!i.objective},i.label?{label:i.label}:{},i.ts&&i.ts!==1?{ts:i.ts}:{}));
-    else if(i.k==='f'){const host=A.find(a=>inside(a,[i.x,i.y]));features.push(Object.assign(b,host?{area:host.id}:{},i.open?{open:true}:{}))}
+    else if(i.k==='f'){const host=A.find(a=>inside(a,[i.x,i.y]));features.push(Object.assign(b,host?{area:host.id}:{},i.open?{open:true}:{},i.tiers!=null?{tiers:i.tiers}:{},i.stairs?{stairs:true}:{}))}
     else{const m={id:i.id,kind:i.type,x:b.x,y:b.y,w:b.w,h:b.h,rot:b.rot};if(i.faction)m.faction=i.faction;if(i.label)m.label=i.label;if(i.mm)m.mm=i.mm;if(i.ts&&i.ts!==1)m.ts=i.ts;markers.push(m)}});
   return{areas,features,markers}}
 
@@ -563,11 +582,30 @@ async function mountAtelier(host,opt){
     const group=(title,entries)=>{if(!entries.length)return;const h=document.createElement('h3');h.textContent=title;host2.appendChild(h);const box=document.createElement('div');box.className='at-pal';host2.appendChild(box);entries.forEach(e=>{const b=document.createElement('button');b.type='button';b.title=e.title||e.n;b.appendChild(e.pc);const sp=document.createElement('span');sp.textContent=e.n;b.appendChild(sp);b.addEventListener('click',e.add);box.appendChild(b)})};
     const areaE=Object.values(KAT.areas).map(a=>{const w=a.width_in||8,h=a.depth_in||6;const it={id:'pv-'+a.id,k:'a',type:a.id,x:0,y:0,w,h,rot:0,obscuring:true};return{n:a.name+(a.width_in?` ${String(a.width_in).replace('.',',')}×${String(a.depth_in).replace('.',',')}`:''),title:a.official?'Empreinte standard GW (V11)':'Zone sur mesure',pc:previewCanvas((c,sc)=>drawOne(c,it,sc,88,56),w,h,'#1b2024'),add:()=>addItem({k:'a',type:a.id,w,h,obscuring:a.obscuring_default!==false,objective:false})}});
     group('Zones de terrain',areaE);
+    /* zones d'objectif (V11 : l'objectif est une zone de terrain) */
+    const nextObj=()=>M.items.filter(i=>i.k==='a'&&i.objective).length+1;
+    const objE=Object.values(KAT.areas).filter(a=>a.shape!=='line').map(a=>{const w=a.width_in||8,h=a.depth_in||6;const it={id:'pvo-'+a.id,k:'a',type:a.id,x:0,y:0,w,h,rot:0,obscuring:true,objective:true,label:' '};
+      return{n:a.name+(a.width_in?` ${String(a.width_in).replace('.',',')}×${String(a.depth_in).replace('.',',')}`:''),title:'Zone de terrain marquée objectif, numérotée automatiquement',pc:previewCanvas((c,sc)=>{const T=TACT;TACT=true;drawOne(c,it,sc,88,56);TACT=T},w,h,'#1b2024'),
+        add:()=>addItem({k:'a',type:a.id,w,h,obscuring:a.obscuring_default!==false,objective:true,label:'Objectif '+nextObj()})}});
+    const OLAY=[
+      {n:'3 objectifs en ligne',f:(W,H)=>[[W/2,H/2,'large_rect',90],[W*.18,H/2,'medium_rect',90],[W*.82,H/2,'medium_rect',90]]},
+      {n:'4 objectifs en losange',f:(W,H)=>[[W/2,H*.26,'medium_rect',0],[W/2,H*.74,'medium_rect',0],[W*.22,H/2,'medium_rect',90],[W*.78,H/2,'medium_rect',90]]},
+      {n:'5 objectifs en croix',f:(W,H)=>[[W/2,H/2,'large_rect',90],[W*.24,H*.27,'medium_rect',0],[W*.76,H*.27,'medium_rect',0],[W*.24,H*.73,'medium_rect',0],[W*.76,H*.73,'medium_rect',0]]},
+      {n:'6 objectifs en quinconce',f:(W,H)=>[[W*.2,H*.3,'medium_rect',0],[W/2,H*.3,'medium_rect',0],[W*.8,H*.3,'medium_rect',0],[W*.2,H*.7,'medium_rect',0],[W/2,H*.7,'medium_rect',0],[W*.8,H*.7,'medium_rect',0]]}];
+    const layItems=(L,W,H)=>L.f(W,H).map(([x,y,t,r])=>{const a=KAT.areas[t]||{width_in:6,depth_in:4,obscuring_default:true};return{k:'a',type:t,w:+a.width_in,h:+a.depth_in,rot:r,x:Math.round(x*2)/2,y:Math.round(y*2)/2,obscuring:a.obscuring_default!==false,objective:true}});
+    const layE=OLAY.map(L=>({n:L.n,title:'Disposition générique et symétrique (pas celle d’une mission officielle). Les zones arrivent sélectionnées : déplace-les ensemble.',
+      pc:previewCanvas((c,sc)=>{const W=44,H=30;c.setTransform(sc,0,0,sc,88-W*sc/2,56-H*sc/2);c.fillStyle='#2a3036';c.fillRect(0,0,W,H);c.strokeStyle='rgba(232,222,200,.35)';c.lineWidth=.3;c.strokeRect(0,0,W,H);
+        layItems(L,W,H).forEach(it=>{c.save();c.translate(it.x,it.y);c.rotate(it.rot*PI/180);areaPath(c,it);c.fillStyle='rgba(221,182,79,.35)';c.fill();c.lineWidth=.45;c.strokeStyle='#DDB64F';c.stroke();c.restore()});c.setTransform(1,0,0,1,0,0)},44,30,'#1b2024'),
+      add:()=>{pushUndo();let k=nextObj();const C=layItems(L,M.w,M.h).map(o=>Object.assign(o,{id:uid(),x:clamp(o.x,0,M.w),y:clamp(o.y,0,M.h),label:'Objectif '+(k++)}));M.items.push(...C);setSel(C.map(c=>c.id));printList();status(C.length+' zones d’objectif placées et sélectionnées.')}}));
+    group('Zones d’objectif',objE.concat(layE));
     const setIds=M.set_id?KAT.setItems.filter(r=>r.set_id===M.set_id).map(r=>r.type_id):[];
     const featE=d=>{const it={id:'pv-'+d.id,k:'f',type:d.id,x:0,y:0,w:+d.width_in,h:+d.depth_in,rot:0};const bg={tombe:'#26302b',ruines:'#45423c',no_mans_land:'#4a3f2d'}[d.family]||'#333';return{n:d.name,title:`${d.name} — ${String(d.width_in).replace('.',',')}×${String(d.depth_in).replace('.',',')}″, hauteur ${String(d.height_in||0).replace('.',',')}″`,pc:previewCanvas((c,sc)=>{const T=TACT;TACT=false;drawOne(c,it,sc,88,56);TACT=T},it.w,it.h,bg),add:()=>addItem({k:'f',type:d.id,w:+d.width_in,h:+d.depth_in})}};
     if(setIds.length){const st=KAT.sets.find(x=>x.id===M.set_id);group('Set · '+(st?st.name:M.set_id),setIds.map(id=>KAT.decor[id]).filter(Boolean).map(featE))}
     const doorD=Object.values(KAT.decor).filter(d=>{const c=CAT[d.render_key||d.id];return c&&c.door});group('Portes',doorD.map(featE));
-    const fams={};Object.values(KAT.decor).forEach(d=>{const c=CAT[d.render_key||d.id];if(c&&c.door)return;(fams[d.family]=fams[d.family]||[]).push(d)});
+    const pyrD=Object.values(KAT.decor).filter(d=>(d.render_key||d.id)==='pyramid');
+    const pyrE=(d,n,o)=>{const it=Object.assign({id:'pv-'+d.id+n,k:'f',type:d.id,x:0,y:0,w:+d.width_in,h:+d.depth_in,rot:0},o);return{n,title:`${n} — ${String(d.width_in).replace('.',',')}×${String(d.depth_in).replace('.',',')}″, hauteur ${String(d.height_in||0).replace('.',',')}″. Forme, niveaux et escalier réglables dans le panneau.`,pc:previewCanvas((c,sc)=>{const T=TACT;TACT=false;drawOne(c,it,sc,88,56);TACT=T},it.w,it.h,'#26302b'),add:()=>addItem(Object.assign({k:'f',type:d.id,w:+d.width_in,h:+d.depth_in},o))}};
+    pyrD.forEach(d=>group('Pyramides',[pyrE(d,'Pyramide à gradins',{tiers:3}),pyrE(d,'Pyramide lisse',{tiers:0}),pyrE(d,'Ziggourat à escalier',{tiers:4,stairs:true})]));
+    const fams={};Object.values(KAT.decor).forEach(d=>{const c=CAT[d.render_key||d.id];if(c&&c.door||(d.render_key||d.id)==='pyramid')return;(fams[d.family]=fams[d.family]||[]).push(d)});
     Object.keys(fams).forEach(f=>group(FAMILY_LABEL[f]||f,fams[f].map(featE)));
     group('Repères',Object.entries(MARKERS).map(([k,m])=>{const it={id:'pv-'+k,k:'m',type:k,x:0,y:0,w:m.w,h:m.h,rot:0,faction:m.fac};return{n:m.n,pc:previewCanvas((c,sc)=>{c.setTransform(sc,0,0,sc,88,56);CAT[m.draw].draw(c,it,null,sc,true);c.setTransform(1,0,0,1,0,0)},m.w,m.h,'#1b2024'),add:()=>addItem(Object.assign({k:'m',type:k,w:m.w,h:m.h,faction:m.fac,label:k==='label'?'Texte':''},k==='base'?{mm:'40'}:{}))}}))}
   /* état */
@@ -799,6 +837,9 @@ async function mountAtelier(host,opt){
     const name=itemName(it);
     h.appendChild(el('h3',{text:name}));
     if(it.k==='f'){const d=KAT.decor[it.type]||{};h.appendChild(el('p',{class:'at-muted',text:`Hauteur ${String(d.height_in||0).replace('.',',')}″${+d.height_in>=3&&!isDoor(it)?' : Tir plongeant possible depuis ce décor.':''}`}))}
+    if(it.k==='f'&&((KAT.decor[it.type]||{}).render_key||it.type)==='pyramid'){const cur=it.tiers==null?3:+it.tiers,sl=el('select',{});[[0,'Lisse (4 faces)'],[2,'2 niveaux'],[3,'3 niveaux'],[4,'4 niveaux'],[5,'5 niveaux'],[6,'6 niveaux']].forEach(([v,n])=>{const o=el('option',{value:String(v),text:n});if(v===cur)o.selected=true;sl.appendChild(o)});
+      sl.addEventListener('change',()=>{pushUndo();it.tiers=+sl.value;req();printList()});h.appendChild(el('label',{class:'at-f'},[document.createTextNode('Forme'),sl]));
+      const c=el('input',{type:'checkbox'});c.checked=!!it.stairs;c.addEventListener('change',()=>{pushUndo();it.stairs=c.checked;req();printList()});h.appendChild(el('label',{class:'at-chk'},[c,document.createTextNode(' Escalier sur une face (pivote avec l’angle)')]))}
     if(isDoor(it)){const i=el('input',{type:'checkbox'});i.checked=!!it.open;const lab=el('p',{class:'at-muted',text:''});const txt=()=>{lab.textContent=it.open?'Ouverte : ne bloque pas la ligne de vue.':'Fermée : bloque la ligne de vue.'};txt();i.addEventListener('change',()=>{pushUndo();it.open=i.checked;txt();req()});h.appendChild(el('label',{class:'at-chk'},[i,document.createTextNode(' Ouverte (touche O)')]));h.appendChild(lab)}
     const num=(lab,key,step,min)=>{const i=el('input',{type:'number',step:String(step),min:String(min??0),'data-k':key});i.value=Math.round(it[key]*100)/100;i.addEventListener('focus',pushUndo);i.addEventListener('input',()=>{const v=parseFloat(i.value);if(!isNaN(v)){it[key]=key==='rot'?((v%360)+360)%360:Math.max(min??0,v);req()}});return el('label',{class:'at-f'},[document.createTextNode(lab),i])};
     h.appendChild(el('div',{class:'at-row3'},[num('X','x',.5),num('Y','y',.5),num('Angle','rot',15)]));
@@ -872,6 +913,8 @@ async function mountAtelier(host,opt){
     const src=k=>{const L=KAT.stl.filter(s=>s.type_id===k&&s.status!=='ecarte');const b=L.find(s=>['peint','imprime','a_imprimer','retenu'].includes(s.status))||L[0];return b?esc((b.author?b.author+' — ':'')+b.title)+' · '+STAT[b.status]:'aucune source'};
     const n=v=>String(Math.round(v*100)/100).replace('.',',')+'\u2033';
     h.innerHTML='<ul class="at-print">'+Object.keys(by).sort().map(k=>{const d=KAT.decor[k]||{},I=by[k],mods=modulesFor(k);
+      if((d.render_key||k)==='pyramid'){const v={};I.forEach(i=>{const t=i.tiers==null?3:+i.tiers,key=`${t<2?'lisse':t+' niveaux'}${i.stairs?', escalier':''} — ${n(i.w)} × ${n(i.h)}`;v[key]=(v[key]||0)+1});
+        return`<li><b>${I.length} × ${esc(d.name||k)}</b><span class="at-mods">${Object.entries(v).map(([q,c])=>c+' × '+q).join('<br>')}</span><span>${src(k)}</span></li>`}
       if(!mods)return`<li><b>${I.length} × ${esc(d.name||k)}</b><span>${src(k)}</span></li>`;
       const cnt={},rest=[];let tot=0;I.forEach(i=>{tot+=i.w;const r=decompose(i.w,mods);for(const[m,c]of Object.entries(r.cnt))cnt[m]=(cnt[m]||0)+c;if(r.rest)rest.push(r.rest)});
       const parts=Object.keys(cnt).map(Number).sort((a,b)=>b-a).map(m=>`${cnt[m]} × ${n(m)}`);
