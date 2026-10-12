@@ -82,12 +82,11 @@
 .at-thick{display:grid; grid-template-columns:1fr auto; gap:6px; align-items:end}
 .at-thick .at-btn{margin-bottom:1px}
 /* plan de pose : fiche */
-.at-pose{list-style:none; margin:0 0 6px; padding:0; max-height:42vh; overflow:auto}
-.at-pose li{display:grid; grid-template-columns:30px 1fr; gap:6px; padding:5px 4px; border-bottom:1px solid var(--line); font-size:.8rem; line-height:1.35; cursor:pointer}
-.at-pose li:hover{background:var(--panel)}
-.at-pose li.is-sel{background:var(--panel); border-left:2px solid var(--accent)}
-.at-pose li b{font-family:var(--display); font-weight:400; color:var(--accent-bright)}
-.at-pose li span{color:var(--bone-dim)} .at-pose li strong{font-weight:normal; color:var(--bone)}
+.at-steps{display:flex; gap:4px; margin:4px 0 8px} .at-steps .at-btn{flex:1; padding:6px 2px; font-size:.78rem; white-space:nowrap}
+.at-steps .at-btn[aria-pressed="true"]{border-color:var(--accent); color:var(--accent-bright); background:var(--panel)}
+#at-posechk p{font-size:.85rem; line-height:1.4; margin:6px 0} #at-posechk details{font-size:.8rem; margin:4px 0 8px} #at-posechk summary{cursor:pointer; color:var(--bone-dim)}
+.at-chk{display:block; margin:4px 0 8px 16px; padding:0; font-size:.8rem; line-height:1.35; color:var(--bone-dim); list-style:disc} .at-chk li{display:list-item; margin:2px 0}
+.at-warn{color:#E8963D !important}
 /* panneau Besoins d'impression */
 .at-needs{position:absolute; inset:12px; overflow:auto; background:var(--panel); border:1px solid var(--line-strong); padding:12px 16px 18px; z-index:2; box-shadow:0 8px 30px rgba(0,0,0,.5)}
 .at-needs[hidden]{display:none}
