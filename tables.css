@@ -88,6 +88,7 @@
 .at-pose li.is-sel{background:var(--panel); border-left:2px solid var(--accent)}
 .at-pose li b{font-family:var(--display); font-weight:400; color:var(--accent-bright)}
 .at-pose li span{color:var(--bone-dim)} .at-pose li strong{font-weight:normal; color:var(--bone)}
+.at-pose li small{font-size:.72rem; font-style:italic; opacity:.75}
 /* panneau Besoins d'impression */
 .at-needs{position:absolute; inset:12px; overflow:auto; background:var(--panel); border:1px solid var(--line-strong); padding:12px 16px 18px; z-index:2; box-shadow:0 8px 30px rgba(0,0,0,.5)}
 .at-needs[hidden]{display:none}

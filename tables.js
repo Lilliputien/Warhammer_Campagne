@@ -388,82 +388,111 @@ const STAT_ORDER=['peint','imprime','a_imprimer','retenu','a_evaluer'];
 function coverage(t){const L=KAT.stl.filter(x=>x.type_id===t&&x.status!=='ecarte');if(!L.length)return{key:'none',txt:'aucune source',L};
   const b=STAT_ORDER.find(st=>L.some(x=>x.status===st));return{key:b,txt:{peint:'peint',imprime:'imprimé',a_imprimer:'à imprimer',retenu:'source retenue',a_evaluer:'pistes à évaluer'}[b],L}}
 
-/* ---------- plan de pose (v2, oct. 2026) : lisible même avec beaucoup de murs ----------
-   Un seul système de mesure, comme sur les plans GW : chaque point se mesure depuis le bord le plus proche.
-   Notation : ←12 = à 12″ du bord gauche, →4 = à 4″ du bord droit, ↑3 = du bord haut, ↓2 = du bord bas.
-   Sur la carte : quadrillage 1″, règles des bords comptées depuis le bord le plus proche, axes médians.
-   Cotes dessinées : zones de terrain seulement (ou la sélection). Murs et portes ne portent pas de numéro sur la carte :
-   la fiche les décrit par leur ligne (« vertical sur ←18,5, de ↑0 à ↑3 »), à lire sur les règles des bords.
-   Pièces (pylônes, colonnes, sarcophages, gravats…) : petit numéro sur la pièce, position dans la fiche. */
-const POSE_C='#F2B33D';let POSE=false;
+/* ---------- plan de pose (v3, oct. 2026) : chaîne de cotes, comme sur les plans GW ----------
+   Chaque élément est repéré sur deux axes (↔ et ↕), soit par rapport à un bord de table, soit par rapport à un décor
+   déjà posé : on choisit la mesure la plus courte, et un décor collé à un autre (contact) ne demande aucune mesure.
+   L'ordre de la fiche est l'ordre d'installation (zones, murs, portes, pièces) : chaque référence pointe vers un élément posé avant lui.
+   Zones de terrain : repérées depuis les bords (elles ne sont pas toujours tracées sur la vraie table).
+   Notation de contrôle : ←12 = à 12″ du bord gauche, →4 du bord droit, ↑3 du bord haut, ↓2 du bord bas.
+   Sur la carte : cotes depuis un bord en or, cotes entre décors en vert pâle ; contacts sans cote. */
+const POSE_C='#F2B33D',POSE_R='#86D1C4';let POSE=false;
 const fN=v=>String(Math.round(v*10)/10).replace('.',',')+'″';
 const fV=v=>String(Math.round(v*10)/10).replace('.',',');
 function aabbW(it){const a=it.rot*PI/180,co=Math.abs(Math.cos(a)),si=Math.abs(Math.sin(a)),hw=(it.w*co+it.h*si)/2,hh=(it.w*si+it.h*co)/2;return{l:it.x-hw,r:it.x+hw,t:it.y-hh,b:it.y+hh}}
 function nameOf(it){return it.k==='a'?(KAT.areas[it.type]||{}).name||'Zone':it.k==='f'?(KAT.decor[it.type]||{}).name||it.type:(MARKERS[it.type]||{}).n||it.type}
 function isLine(it){return it.k==='f'&&(isDoor(it)||HOSTWALL[it.type]||((KAT.decor[it.type]||{}).render_key in HOSTWALL))}
-function poseEntries(map){const W=map.w,H=map.h,cl=v=>Math.max(0,v);
-  const sec=it=>it.k==='a'?0:isLine(it)?(isDoor(it)?2:1):3;
-  const L=map.items.filter(i=>i.k==='a'||i.k==='f').map(it=>({it,b:aabbW(it),sec:sec(it)}))
-    .sort((p,q)=>(p.sec-q.sec)||(Math.round(p.b.t*2)-Math.round(q.b.t*2))||(p.b.l-q.b.l));
-  const cnt=[0,0,0,0],pre=['Z','M','P',''];
-  return L.map(({it,b,sec})=>{const r=((it.rot%90)+90)%90,straight=r<.5||r>89.5;let px,py,hx,vy,ex,ey,dx,dy;
-    if(straight){if(b.l<=W-b.r){px=b.l;ex='gauche';dx=b.l;hx=0}else{px=b.r;ex='droit';dx=W-b.r;hx=W}
-      if(b.t<=H-b.b){py=b.t;ey='haut';dy=b.t;vy=0}else{py=b.b;ey='bas';dy=H-b.b;vy=H}}
-    else{px=it.x;py=it.y;if(px<=W-px){ex='gauche';dx=px;hx=0}else{ex='droit';dx=W-px;hx=W}if(py<=H-py){ey='haut';dy=py;vy=0}else{ey='bas';dy=H-py;vy=H}}
-    const a=it.rot*PI/180,ca=Math.cos(a),sa=Math.sin(a),e1=[it.x-ca*it.w/2,it.y-sa*it.w/2],e2=[it.x+ca*it.w/2,it.y+sa*it.w/2];
-    return{it,b,sec,n:pre[sec]+(++cnt[sec]),px,py,hx,vy,ex,ey,dx:cl(dx),dy:cl(dy),straight,ends:[e1,e2],W,H}})}
-/* distance au bord le plus proche, avec la flèche du bord */
 function axX(x,W){x=Math.max(0,Math.min(W,x));return x<=W/2+.01?'←'+fV(x):'→'+fV(W-x)}
 function axY(y,H){y=Math.max(0,Math.min(H,y));return y<=H/2+.01?'↑'+fV(y):'↓'+fV(H-y)}
-function poseText(e){const it=e.it,W=e.W,H=e.H,side=v=>v==='droit'?'droite':v;
+const POSE_EPS=.06,POSE_OV=.25,POSE_ALIGN=1.5;
+/* meilleure référence d'un axe pour l'élément P parmi les bords et les éléments déjà posés
+   ax='x' : mesure horizontale (P à gauche/droite de Q, il faut que P et Q se fassent face en hauteur) */
+function poseRef(P,ax,placed,W,H){const b=P.b,lo=ax==='x'?'l':'t',hi=ax==='x'?'r':'b',plo=ax==='x'?'t':'l',phi=ax==='x'?'b':'r',N=ax==='x'?W:H;
+  let best=b[lo]<=N-b[hi]?{kind:'edge',side:ax==='x'?'gauche':'haut',d:Math.max(0,b[lo]),cost:Math.max(0,b[lo])}:{kind:'edge',side:ax==='x'?'droit':'bas',d:Math.max(0,N-b[hi]),cost:Math.max(0,N-b[hi])};
+  if(best.d<POSE_EPS)best=Object.assign(best,{kind:'edge0',d:0,cost:0});
+  for(const Q of placed){const q=Q.b,ov=Math.min(b[phi],q[phi])-Math.max(b[plo],q[plo]);let c=null;
+    if(ov>=POSE_OV){
+      if(q[hi]<=b[lo]+POSE_EPS){const d=Math.max(0,b[lo]-q[hi]);c={kind:d<POSE_EPS?'touch':'gap',dir:ax==='x'?'droite':'dessous',d,cost:d}}
+      else if(q[lo]>=b[hi]-POSE_EPS){const d=Math.max(0,q[lo]-b[hi]);c={kind:d<POSE_EPS?'touch':'gap',dir:ax==='x'?'gauche':'dessus',d,cost:d}}}
+    else if(ov>-4){/* même alignement (bord commun), utile pour les murs en enfilade */
+      for(const[sb,sq,nm]of[[lo,lo,ax==='x'?'gauche':'haut'],[hi,hi,ax==='x'?'droit':'bas']])if(Math.abs(b[sb]-q[sq])<POSE_EPS){const cc={kind:'align',side:nm,d:0,cost:POSE_ALIGN};if(!c||cc.cost<c.cost)c=cc}}
+    if(c&&(c.cost<best.cost-1e-6||(c.cost===best.cost&&best.kind==='gap'&&c.kind==='touch'))){c.ref=Q;c.ov=[Math.max(b[plo],q[plo]),Math.min(b[phi],q[phi])];best=c}}
+  return best}
+/* porte (ou portail) dans l'ouverture d'un mur : ses deux bouts touchent des murs déjà posés */
+function poseBetween(P,placed){if(P.sec!==2)return null;const e=P.ends,hit=pt=>placed.find(Q=>Q.sec===1&&Q.ends.some(q=>Math.hypot(q[0]-pt[0],q[1]-pt[1])<.3));
+  const a=hit(e[0]),b=hit(e[1]);return a&&b&&a!==b?[a,b]:null}
+let POSE_MEMO={k:'',E:null};
+function poseEntries(map){const W=map.w,H=map.h,key=W+'x'+H+'|'+map.items.map(i=>[i.id,i.k,i.type,i.x,i.y,i.w,i.h,i.rot,i.open?1:0,i.label||''].join(',')).join(';');if(POSE_MEMO.k===key)return POSE_MEMO.E;
+  const sec=it=>it.k==='a'?0:isLine(it)?(isDoor(it)?2:1):3;
+  const all=map.items.filter(i=>i.k==='a'||i.k==='f').map(it=>{const a=it.rot*PI/180,ca=Math.cos(a),sa=Math.sin(a);
+    return{it,b:aabbW(it),sec:sec(it),ends:[[it.x-ca*it.w/2,it.y-sa*it.w/2],[it.x+ca*it.w/2,it.y+sa*it.w/2]],straight:(((it.rot%90)+90)%90)<.5||(((it.rot%90)+90)%90)>89.5,W,H}});
+  const out=[],cnt=[0,0,0,0],pre=['Z','M','P',''];
+  const run=(pool,canRef,base)=>{const left=pool.slice(),placed=base||[];
+    while(left.length){let bi=0,bs=null;
+      for(let i=0;i<left.length;i++){const P=left[i],pl=canRef?placed:[],bw=poseBetween(P,pl);
+        const s=bw?{bw,cost:0}:(()=>{const x=poseRef(P,'x',pl,W,H),y=poseRef(P,'y',pl,W,H);return{x,y,cost:x.cost+y.cost}})();
+        if(!bs||s.cost<bs.cost-1e-6||(Math.abs(s.cost-bs.cost)<1e-6&&(P.b.t-left[bi].b.t||P.b.l-left[bi].b.l)<0)){bs=s;bi=i}}
+      const P=left.splice(bi,1)[0];Object.assign(P,bs);P.n=pre[P.sec]+(++cnt[P.sec]);placed.push(P);out.push(P)}};
+  /* ordre d'installation : zones (depuis les bords), puis murs, portes dans leurs ouvertures, enfin les pièces isolées */
+  run(all.filter(e=>e.sec===0),false);
+  const dec=[];run(all.filter(e=>e.sec===1),true,dec);run(all.filter(e=>e.sec===2),true,dec);run(all.filter(e=>e.sec===3),true,dec);
+  POSE_MEMO={k:key,E:out};return out}
+function refTxt(r,ax){const nm=r.ref?r.ref.n:'';
+  if(r.kind==='edge0')return'contre le bord '+r.side;
+  if(r.kind==='edge')return fN(r.d)+' du bord '+r.side;
+  if(r.kind==='touch')return(ax==='x'?'collé à ':'collé ')+({droite:'droite de ',gauche:'gauche de ',dessous:'sous ',dessus:'au-dessus de '}[r.dir])+nm;
+  if(r.kind==='gap')return fN(r.d)+' '+({droite:'à droite de ',gauche:'à gauche de ',dessous:'sous ',dessus:'au-dessus de '}[r.dir])+nm;
+  if(r.kind==='align')return'aligné sur le côté '+r.side+' de '+nm;return''}
+function poseText(e){const it=e.it,W=e.W,H=e.H;
   const state=isDoor(it)?(it.open?', ouverte':', fermée'):'',lab=it.label?' « '+it.label+' »':'';
-  if(e.sec===1||e.sec===2){const[p,q]=e.ends,r=((it.rot%180)+180)%180;
-    if(r<.5||r>179.5){const x1=Math.min(p[0],q[0]),x2=Math.max(p[0],q[0]),y=(p[1]+q[1])/2;
-      return{num:e.n,name:nameOf(it)+lab,dims:fN(it.w)+state,line:`Horizontal sur ${axY(y,H)}, de ${axX(x1,W)} à ${axX(x2,W)}`}}
-    if(Math.abs(r-90)<.5){const y1=Math.min(p[1],q[1]),y2=Math.max(p[1],q[1]),x=(p[0]+q[0])/2;
-      return{num:e.n,name:nameOf(it)+lab,dims:fN(it.w)+state,line:`Vertical sur ${axX(x,W)}, de ${axY(y1,H)} à ${axY(y2,H)}`}}
-    return{num:e.n,name:nameOf(it)+lab,dims:fN(it.w)+state+`, en biais (${Math.round(it.rot)}°)`,line:`De ${axX(p[0],W)} ${axY(p[1],H)} à ${axX(q[0],W)} ${axY(q[1],H)}`}}
-  const dims=e.straight?`${fN(e.b.r-e.b.l)} ↔ × ${fN(e.b.b-e.b.t)} ↕`:`${fN(it.w)} × ${fN(it.h)}, pivoté de ${Math.round(it.rot)}°`;
-  const extra=it.k==='a'?(it.objective?' · objectif':'')+(it.obscuring?' · Obscurcissante':''):'';
-  const line=e.straight?`Coin ${e.ey}-${side(e.ex)} : ${axX(e.px,W)} ${axY(e.py,H)}`:`Centre : ${axX(it.x,W)} ${axY(it.y,H)}`;
-  return{num:e.n,name:nameOf(it)+lab,dims:dims+extra,line}}
+  let dims;if(e.sec===1||e.sec===2){const r=((it.rot%180)+180)%180;dims=fN(it.w)+(r<.5||r>179.5?' horizontal':Math.abs(r-90)<.5?' vertical':` en biais (${Math.round(it.rot)}°)`)+state}
+  else dims=(e.straight?`${fN(e.b.r-e.b.l)} ↔ × ${fN(e.b.b-e.b.t)} ↕`:`${fN(it.w)} × ${fN(it.h)}, pivoté de ${Math.round(it.rot)}°`)+(it.k==='a'?(it.objective?' · objectif':'')+(it.obscuring?' · Obscurcissante':''):'');
+  const line=e.bw?`Dans l'ouverture entre ${e.bw[0].n} et ${e.bw[1].n}`:`↔ ${refTxt(e.x,'x')} · ↕ ${refTxt(e.y,'y')}`;
+  const abs=e.straight?`contrôle : coin ${axX(e.b.l,W)} ${axY(e.b.t,H)}`:`contrôle : centre ${axX(it.x,W)} ${axY(it.y,H)}`;
+  return{num:e.n,name:nameOf(it)+lab,dims,line,abs}}
+/* segments à dessiner pour les deux références d'un élément (coordonnées en pouces) */
+function poseSegs(e){const S=[],b=e.b,W=e.W,H=e.H;if(e.bw)return S;
+  for(const ax of['x','y']){const r=e[ax];if(!r||r.kind==='edge0'||r.kind==='touch')continue;
+    if(r.kind==='align'){const q=r.ref.b,v=ax==='x'?(r.side==='gauche'?b.l:b.r):(r.side==='haut'?b.t:b.b);
+      S.push({align:true,ax,p0:ax==='x'?[v,Math.min(b.t,q.t)]:[Math.min(b.l,q.l),v],p1:ax==='x'?[v,Math.max(b.b,q.b)]:[Math.max(b.r,q.r),v]});continue}
+    if(r.kind==='edge'){if(ax==='x'){const y=(b.t+b.b)/2;S.push({edge:true,ax,d:r.d,p0:r.side==='gauche'?[0,y]:[W,y],p1:r.side==='gauche'?[b.l,y]:[b.r,y]})}
+      else{const x=(b.l+b.r)/2;S.push({edge:true,ax,d:r.d,p0:r.side==='haut'?[x,0]:[x,H],p1:r.side==='haut'?[x,b.t]:[x,b.b]})}continue}
+    const q=r.ref.b,m=(r.ov[0]+r.ov[1])/2;
+    if(ax==='x')S.push({ax,d:r.d,p0:r.dir==='droite'?[q.r,m]:[q.l,m],p1:r.dir==='droite'?[b.l,m]:[b.r,m]});
+    else S.push({ax,d:r.d,p0:r.dir==='dessous'?[m,q.b]:[m,q.t],p1:r.dir==='dessous'?[m,b.t]:[m,b.b]})}
+  return S}
 function drawPose(c,map,s,ox,oy,o){const E=poseEntries(map),dpr=o.dpr||1,only=o.poseOnly&&o.poseOnly.size?o.poseOnly:null,P=(x,y)=>[ox+x*s,oy+y*s];
   const fs=Math.max(10*dpr,Math.min(13*dpr,s*.5)),placed=[],hitR=r=>placed.some(q=>r.x<q.x+q.w&&r.x+r.w>q.x&&r.y<q.y+q.h&&r.y+r.h>q.y);
   c.save();c.setTransform(1,0,0,1,0,0);noShadow(c);
-  /* axes médians et centre */
-  c.strokeStyle='rgba(242,179,61,.45)';c.lineWidth=dpr;c.setLineDash([6*dpr,5*dpr]);
+  c.strokeStyle='rgba(242,179,61,.35)';c.lineWidth=dpr;c.setLineDash([6*dpr,5*dpr]);
   let a=P(map.w/2,0),b=P(map.w/2,map.h);c.beginPath();c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);a=P(0,map.h/2);b=P(map.w,map.h/2);c.moveTo(a[0],a[1]);c.lineTo(b[0],b[1]);c.stroke();c.setLineDash([]);
   const m=P(map.w/2,map.h/2);c.strokeStyle=POSE_C;c.lineWidth=1.5*dpr;c.beginPath();c.moveTo(m[0]-8*dpr,m[1]);c.lineTo(m[0]+8*dpr,m[1]);c.moveTo(m[0],m[1]-8*dpr);c.lineTo(m[0],m[1]+8*dpr);c.stroke();
-  /* sélection : surligner les murs et portes choisis (ils n'ont pas de numéro sur la carte) */
-  if(only)E.forEach(e=>{if(!only.has(e.it.id)||e.sec===0||e.sec===3)return;const[p,q]=e.ends.map(v=>P(v[0],v[1]));c.strokeStyle=POSE_C;c.lineWidth=Math.max(3*dpr,e.it.h*s*.9);c.lineCap='round';c.globalAlpha=.55;c.beginPath();c.moveTo(p[0],p[1]);c.lineTo(q[0],q[1]);c.stroke();c.globalAlpha=1;c.lineCap='butt'});
-  c.font=`${fs}px Marcellus, Georgia, serif`;c.textBaseline='middle';c.textAlign='center';
-  /* étiquettes : zone = cartouche dans son coin haut-gauche ; pièce = petit numéro sur la pièce ; murs et portes : rien */
-  const sfs=Math.max(8.5*dpr,fs*.78),B=[];
-  E.forEach(e=>{if(e.sec===1||e.sec===2)return;
-    if(e.sec===0){c.font=`${fs}px Marcellus, Georgia, serif`;const tw=c.measureText(e.n).width,w=tw+10*dpr,h=fs*1.45,q=[Math.min(ox+e.b.l*s+w/2+3*dpr,ox+e.it.x*s),Math.min(oy+e.b.t*s+h/2+3*dpr,oy+e.it.y*s)];
-      const R={x:q[0]-w/2,y:q[1]-h/2,w,h};placed.push(R);B.push({e,R,q,f:fs})}
-    else{c.font=`${sfs}px Marcellus, Georgia, serif`;const tw=c.measureText(e.n).width,w=Math.max(tw+6*dpr,sfs*1.35),h=sfs*1.35,q=P(e.it.x,e.it.y);
-      const R={x:q[0]-w/2,y:q[1]-h/2,w,h};placed.push(R);B.push({e,R,q,f:sfs})}});
-  const dim=(p0,p1,val,horiz)=>{c.font=`${fs}px Marcellus, Georgia, serif`;const t=fN(val),tw=c.measureText(t).width+8*dpr,th=fs*1.3;let R=null,cx,cy;
-      for(const f of[.5,.4,.6,.3,.7,.2,.8]){cx=p0[0]+(p1[0]-p0[0])*f;cy=p0[1]+(p1[1]-p0[1])*f;const q={x:cx-tw/2,y:cy-th/2,w:tw,h:th};if(!hitR(q)){R=q;break}}
-      if(!R){cx=p0[0]+(p1[0]-p0[0])*.5;cy=p0[1]+(p1[1]-p0[1])*.5;R={x:cx-tw/2,y:cy-th/2,w:tw,h:th}}   // une cote demandée s'affiche toujours
-      c.strokeStyle=POSE_C;c.lineWidth=1.5*dpr;c.beginPath();c.moveTo(p0[0],p0[1]);c.lineTo(p1[0],p1[1]);const k=4*dpr;
-      /* flèches aux deux bouts, comme sur un plan coté */
-      const ang=Math.atan2(p1[1]-p0[1],p1[0]-p0[0]);for(const[q,dir]of[[p0,ang+PI],[p1,ang]]){c.moveTo(q[0],q[1]);c.lineTo(q[0]-Math.cos(dir-.45)*2*k,q[1]-Math.sin(dir-.45)*2*k);c.moveTo(q[0],q[1]);c.lineTo(q[0]-Math.cos(dir+.45)*2*k,q[1]-Math.sin(dir+.45)*2*k)}
-      c.moveTo(p0[0]+(horiz?0:-k),p0[1]+(horiz?-k:0));c.lineTo(p0[0]+(horiz?0:k),p0[1]+(horiz?k:0));c.stroke();
-      placed.push(R);c.fillStyle='#0B0E10';rrect(c,R.x,R.y,R.w,R.h,3*dpr);c.fill();c.strokeStyle='rgba(242,179,61,.7)';c.lineWidth=dpr;c.stroke();c.fillStyle=POSE_C;c.fillText(t,cx,cy+dpr*.5)};
-  /* cotes : par défaut les zones de terrain ; sinon la sélection (zones, pièces, murs et portes) */
-  const cote=e=>only?only.has(e.it.id):e.sec===0;
-  E.filter(cote).forEach(e=>{let px=e.px,py=e.py,hx=e.hx,vy=e.vy,dx=e.dx,dy=e.dy;
-    if(e.sec===1||e.sec===2){/* mur ou porte : cote du bout le plus proche d'un coin de table */
-      const W=map.w,H=map.h,sc=v=>Math.min(v[0],W-v[0])+Math.min(v[1],H-v[1]),p=sc(e.ends[0])<=sc(e.ends[1])?e.ends[0]:e.ends[1];
-      px=p[0];py=p[1];if(px<=W-px){hx=0;dx=px}else{hx=W;dx=W-px}if(py<=H-py){vy=0;dy=py}else{vy=H;dy=H-py}}
-    const pt=P(px,py),iy=py<.4?.7:py>map.h-.4?-.7:0,ix=px<.4?.7:px>map.w-.4?-.7:0;
-    if(dx>=.05)dim(P(hx,py+iy),P(px,py+iy),dx,true);if(dy>=.05)dim(P(px+ix,vy),P(px+ix,py),dy,false);
-    c.fillStyle=POSE_C;c.beginPath();c.arc(pt[0],pt[1],3.2*dpr,0,TAU);c.fill()});
-  B.forEach(({e,R,q,f})=>{const dim2=only&&!only.has(e.it.id);c.globalAlpha=dim2?.5:1;c.font=`${f}px Marcellus, Georgia, serif`;
+  /* élément(s) sélectionné(s) et leurs références : surlignés */
+  const focus=new Set();if(only)E.forEach(e=>{if(!only.has(e.it.id))return;focus.add(e);if(e.bw)e.bw.forEach(q=>focus.add(q));for(const ax of['x','y'])if(e[ax]&&e[ax].ref)focus.add(e[ax].ref)});
+  focus.forEach(e=>{const sel=only.has(e.it.id);c.globalAlpha=sel?.6:.35;c.strokeStyle=sel?POSE_C:POSE_R;
+    if(e.sec===1||e.sec===2){const[p,q]=e.ends.map(v=>P(v[0],v[1]));c.lineWidth=Math.max(4*dpr,e.it.h*s*1.1);c.lineCap='round';c.beginPath();c.moveTo(p[0],p[1]);c.lineTo(q[0],q[1]);c.stroke();c.lineCap='butt'}
+    else{c.lineWidth=3*dpr;const p=P(e.b.l,e.b.t);c.strokeRect(p[0]-2*dpr,p[1]-2*dpr,(e.b.r-e.b.l)*s+4*dpr,(e.b.b-e.b.t)*s+4*dpr)}c.globalAlpha=1});
+  /* numéros : zones en cartouche dans leur coin, murs, portes et pièces en petite pastille sur la pièce */
+  const sfs=Math.max(8*dpr,fs*.72),B=[];
+  E.forEach(e=>{if(e.sec===0){c.font=`${fs}px Marcellus, Georgia, serif`;const tw=c.measureText(e.n).width,w=tw+10*dpr,h=fs*1.45,q=[Math.min(ox+e.b.l*s+w/2+3*dpr,ox+e.it.x*s),Math.min(oy+e.b.t*s+h/2+3*dpr,oy+e.it.y*s)];
+      const R={x:q[0]-w/2,y:q[1]-h/2,w,h};placed.push(R);B.push({e,R,q,f:fs});return}
+    c.font=`${sfs}px Marcellus, Georgia, serif`;const tw=c.measureText(e.n).width,w=Math.max(tw+6*dpr,sfs*1.4),h=sfs*1.4,q=P(e.it.x,e.it.y);
+    const R={x:q[0]-w/2,y:q[1]-h/2,w,h};placed.push(R);B.push({e,R,q,f:sfs})});
+  const dim=(seg,col,force)=>{const p0=P(seg.p0[0],seg.p0[1]),p1=P(seg.p1[0],seg.p1[1]);
+      if(seg.align){c.strokeStyle=col;c.lineWidth=1.25*dpr;c.setLineDash([3*dpr,3*dpr]);c.beginPath();c.moveTo(p0[0],p0[1]);c.lineTo(p1[0],p1[1]);c.stroke();c.setLineDash([]);return}
+      c.font=`${fs*.92}px Marcellus, Georgia, serif`;const t=fN(seg.d),tw=c.measureText(t).width+8*dpr,th=fs*1.25;let R=null,cx,cy;
+      const len=Math.hypot(p1[0]-p0[0],p1[1]-p0[1]);
+      for(const f of[.5,.35,.65,.2,.8]){cx=p0[0]+(p1[0]-p0[0])*f;cy=p0[1]+(p1[1]-p0[1])*f;const q={x:cx-tw/2,y:cy-th/2,w:tw,h:th};if(!hitR(q)){R=q;break}}
+      if(!R){/* sinon à côté du trait */const hz=seg.ax==='x';cx=(p0[0]+p1[0])/2+(hz?0:tw/2+4*dpr);cy=(p0[1]+p1[1])/2+(hz?-th/2-3*dpr:0);const q={x:cx-tw/2,y:cy-th/2,w:tw,h:th};if(!hitR(q)||force)R=q}
+      if(!R)return false;
+      c.strokeStyle=col;c.lineWidth=1.4*dpr;c.beginPath();c.moveTo(p0[0],p0[1]);c.lineTo(p1[0],p1[1]);
+      const k=3.5*dpr,ang=Math.atan2(p1[1]-p0[1],p1[0]-p0[0]);if(len>4*k)for(const[q,dir]of[[p0,ang+PI],[p1,ang]]){c.moveTo(q[0],q[1]);c.lineTo(q[0]-Math.cos(dir-.5)*2*k,q[1]-Math.sin(dir-.5)*2*k);c.moveTo(q[0],q[1]);c.lineTo(q[0]-Math.cos(dir+.5)*2*k,q[1]-Math.sin(dir+.5)*2*k)}
+      c.stroke();placed.push(R);c.fillStyle='#0B0E10';rrect(c,R.x,R.y,R.w,R.h,3*dpr);c.fill();c.strokeStyle=col;c.globalAlpha=.75;c.lineWidth=dpr;c.stroke();c.globalAlpha=1;c.fillStyle=col;c.textAlign='center';c.textBaseline='middle';c.fillText(t,cx,cy+dpr*.5);return true};
+  /* toutes les cotes de la chaîne (ou celles de la sélection) */
+  E.filter(e=>!only||only.has(e.it.id)).forEach(e=>poseSegs(e).forEach(seg=>{if(seg.align&&!only)return;dim(seg,seg.edge?POSE_C:POSE_R,!!only)}));
+  c.textAlign='center';c.textBaseline='middle';
+  B.forEach(({e,R,q,f})=>{const sel=only&&only.has(e.it.id),dim2=only&&!focus.has(e);c.globalAlpha=dim2?.45:1;c.font=`${f}px Marcellus, Georgia, serif`;
     if(e.sec===0){c.fillStyle='#0B0E10';c.strokeStyle='#C2D7E3';c.lineWidth=1.5*dpr;rrect(c,R.x,R.y,R.w,R.h,3*dpr);c.fill();c.stroke();c.fillStyle='#E4EEF3'}
-    else{c.fillStyle=only&&only.has(e.it.id)?POSE_C:'rgba(11,14,16,.82)';rrect(c,R.x,R.y,R.w,R.h,R.h/2);c.fill();c.fillStyle=only&&only.has(e.it.id)?'#0B0E10':'#F2EBDD'}
+    else{c.fillStyle=sel?POSE_C:e.sec===3?'rgba(11,14,16,.85)':'rgba(30,38,42,.92)';rrect(c,R.x,R.y,R.w,R.h,R.h/2);c.fill();if(e.sec!==3&&!sel){c.strokeStyle='rgba(232,222,200,.55)';c.lineWidth=dpr;c.stroke()}c.fillStyle=sel?'#0B0E10':'#F2EBDD'}
     c.fillText(e.n,q[0],q[1]+dpr*.5);c.globalAlpha=1});
   c.restore()}
 /* règles du plan de pose : graduées depuis le bord le plus proche (0 aux deux bouts, maximum au milieu) */
@@ -570,7 +599,7 @@ async function mountAtelier(host,opt){
     <div class="at-stage" id="at-stage"><canvas id="at-cv" aria-label="Table de bataille"></canvas><div class="at-draft" id="at-draft" hidden></div><div class="at-hint" id="at-hint"></div><div class="at-keys" id="at-keyspanel" hidden></div><div class="at-needs" id="at-needs" hidden></div><div class="at-gapbar" id="at-gapbar" hidden></div><div class="at-needs" id="at-lib" hidden></div><div class="at-needs at-design" id="at-design" hidden></div></div>
     <aside class="at-right">
       <div id="at-insp"></div>
-      <div id="at-posebox" hidden><h3>Fiche de pose</h3><p class="at-muted">Pouces depuis le bord le plus proche : ← gauche, → droite, ↑ haut, ↓ bas. Z zones, M murs, P portes, chiffres = pièces. Clique une ligne pour voir ses cotes sur la carte.</p><ol class="at-pose" id="at-pose"></ol></div>
+      <div id="at-posebox" hidden><h3>Fiche de pose</h3><p class="at-muted">Dans l'ordre d'installation. ↔ et ↕ : depuis un bord ou un décor déjà posé. « Contrôle » : position depuis les bords (← gauche, → droite, ↑ haut, ↓ bas). Z zones, M murs, P portes, chiffres = pièces.</p><ol class="at-pose" id="at-pose"></ol></div>
       <h3>Carte</h3>
       <label class="at-f">Ouvrir<select id="at-list"></select></label>
       <div class="at-row2"><button type="button" class="at-btn" id="at-new">Nouvelle</button><button type="button" class="at-btn" id="at-proto">Modèle prologue</button></div>
@@ -623,7 +652,7 @@ async function mountAtelier(host,opt){
     if(mode==='wall')drawTrace();
     if(measure){const a=[ox+measure.a[0]*s,oy+measure.a[1]*s],b=[ox+measure.b[0]*s,oy+measure.b[1]*s],d=Math.hypot(measure.b[0]-measure.a[0],measure.b[1]-measure.a[1]);ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.strokeStyle='rgba(8,10,10,.8)';ctx.lineWidth=5*DPR;ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();ctx.strokeStyle='#E8DEC8';ctx.lineWidth=2*DPR;ctx.stroke();ctx.font=`${14*DPR}px Marcellus, Georgia, serif`;ctx.textAlign='center';ctx.textBaseline='bottom';const tx=(a[0]+b[0])/2,ty=(a[1]+b[1])/2-8*DPR,txt=d.toFixed(1).replace('.',',')+'″';ctx.lineWidth=4*DPR;ctx.strokeStyle='rgba(8,10,10,.85)';ctx.strokeText(txt,tx,ty);ctx.fillStyle='#E8DEC8';ctx.fillText(txt,tx,ty);ctx.restore()}}
   new ResizeObserver(fit).observe(stage);
-  function hint(txt){$('at-hint').textContent=txt||(mode==='mes'?'Glisse sur la table pour mesurer.':mode==='wall'?(wallKind==='door'?'Survole un mur : la porte s\u2019aligne dessus et prend son épaisseur. Clic : la poser, le mur s\u2019ouvre à sa largeur.':trace?'Clique pour poser l\u2019angle suivant. Clic droit, double-clic ou Entrée : finir ce mur (le suivant repart de zéro). Retour arrière : effacer le dernier segment.':'Clique pour poser le début du mur. Angles calés à 45° (Maj : libre), Alt : sans grille. Un clic sur l\u2019extrémité d\u2019un mur s\u2019y raccroche.'):S.size>1?S.size+' éléments sélectionnés. Glisse l\u2019un d\u2019eux pour tout déplacer ; Maj+clic ajoute ou retire ; Suppr retire.':gapOn&&!S.size?'Passages : en rouge, plus étroit que le socle choisi ; en orange, il passe avec moins de 0,4\u2033 de marge. Les décors au sol (cratères, gravats, tranchées) ne bloquent pas ; une porte fermée bloque. Pour un ovale, c\u2019est la petite largeur qui compte. Pose un Socle de test (Repères) pour essayer un passage à la main.':pose&&!S.size?'Plan de pose : tout se mesure depuis le bord le plus proche (←12 = 12″ du bord gauche). Seules les zones sont cotées ; clique un élément ou une ligne de la fiche pour voir ses cotes.':sel?'Rond : pivoter. Carrés : étirer, le côté opposé reste fixe (Ctrl : depuis le centre). Suppr : retirer.':TACT?'Vue tactique : zone pleine = Obscurcissante, pointillée = sans blocage, liseré doré = objectif ; hauteur affichée sur les décors de 3″ et plus (Tir plongeant).':'Glisse dans le vide pour sélectionner plusieurs éléments (Ctrl+glisser : depuis n\u2019importe où). Pose d\u2019abord les zones de terrain, puis les décors dessus.')}
+  function hint(txt){$('at-hint').textContent=txt||(mode==='mes'?'Glisse sur la table pour mesurer.':mode==='wall'?(wallKind==='door'?'Survole un mur : la porte s\u2019aligne dessus et prend son épaisseur. Clic : la poser, le mur s\u2019ouvre à sa largeur.':trace?'Clique pour poser l\u2019angle suivant. Clic droit, double-clic ou Entrée : finir ce mur (le suivant repart de zéro). Retour arrière : effacer le dernier segment.':'Clique pour poser le début du mur. Angles calés à 45° (Maj : libre), Alt : sans grille. Un clic sur l\u2019extrémité d\u2019un mur s\u2019y raccroche.'):S.size>1?S.size+' éléments sélectionnés. Glisse l\u2019un d\u2019eux pour tout déplacer ; Maj+clic ajoute ou retire ; Suppr retire.':gapOn&&!S.size?'Passages : en rouge, plus étroit que le socle choisi ; en orange, il passe avec moins de 0,4\u2033 de marge. Les décors au sol (cratères, gravats, tranchées) ne bloquent pas ; une porte fermée bloque. Pour un ovale, c\u2019est la petite largeur qui compte. Pose un Socle de test (Repères) pour essayer un passage à la main.':pose&&!S.size?'Plan de pose : chaque décor est coté depuis un bord (or) ou depuis un décor déjà posé (vert) ; sans cote = collé à son voisin. La fiche suit l\u2019ordre d\u2019installation. Clique un élément pour isoler ses cotes.':sel?'Rond : pivoter. Carrés : étirer, le côté opposé reste fixe (Ctrl : depuis le centre). Suppr : retirer.':TACT?'Vue tactique : zone pleine = Obscurcissante, pointillée = sans blocage, liseré doré = objectif ; hauteur affichée sur les décors de 3″ et plus (Tir plongeant).':'Glisse dans le vide pour sélectionner plusieurs éléments (Ctrl+glisser : depuis n\u2019importe où). Pose d\u2019abord les zones de terrain, puis les décors dessus.')}
   /* palette */
   function previewCanvas(drawFn,w,h,bg){const pc=document.createElement('canvas');pc.width=176;pc.height=112;const c=pc.getContext('2d');c.fillStyle=bg;c.fillRect(0,0,176,112);const sc=Math.min(150/w,88/h,40);drawFn(c,sc);return pc}
   function buildPalette(){const host2=$('at-pal');host2.innerHTML='';
@@ -833,7 +862,7 @@ async function mountAtelier(host,opt){
   $('at-gapb').onclick=()=>setGap();
   $('at-posev').onclick=()=>{pose=!pose;$('at-posev').setAttribute('aria-pressed',pose);$('at-posebox').hidden=!pose;poseSig='';hint();req()};
   function updatePose(){const E=poseEntries(M),rows=E.map(poseText),sig=JSON.stringify(rows)+'|'+[...S].join(',');if(sig===poseSig)return;poseSig=sig;
-    $('at-pose').innerHTML=rows.length?rows.map((r,i)=>`<li data-id="${E[i].it.id}"${S.has(E[i].it.id)?' class="is-sel"':''}><b>${esc(r.num)}</b><span><strong>${esc(r.name)}</strong> · ${esc(r.dims)}<br>${esc(r.line)}</span></li>`).join(''):'<li class="at-muted">Rien à poser.</li>'}
+    $('at-pose').innerHTML=rows.length?rows.map((r,i)=>`<li data-id="${E[i].it.id}"${S.has(E[i].it.id)?' class="is-sel"':''}><b>${esc(r.num)}</b><span><strong>${esc(r.name)}</strong> · ${esc(r.dims)}<br>${esc(r.line)}<br><small>${esc(r.abs)}</small></span></li>`).join(''):'<li class="at-muted">Rien à poser.</li>'}
   $('at-pose').onclick=e=>{const li=e.target.closest('li[data-id]');if(li)setSel([li.dataset.id])};
   $('at-undo').onclick=undo;$('at-redo').onclick=redo;$('at-keys').onclick=()=>keysPanel();
   /* inspecteur */
@@ -1119,22 +1148,21 @@ async function mountAtelier(host,opt){
   $('at-file').onchange=async e=>{const f=e.target.files[0];if(!f)return;if(!guard()){e.target.value='';return}try{const t=JSON.parse(await f.text());
       const items=toItems(t.layout||t.items||t);if(!items.length)throw 0;
       loadInto({id:null,name:t.name||'Table importée',edition:'V11',acte:t.acte||'1',partie:t.partie||1,location_ref:t.location_ref||'',set_id:t.set_id||'',w:+(t.width_in||t.w||44),h:+(t.depth_in||t.h||30),biome:t.biome||'ruine',published:false,notes:t.notes||'',items});status('Table importée : enregistre-la pour la garder.')}catch(err){status('Ce fichier n\u2019est pas une table valide.')}e.target.value=''};
-  function poseSheet(){const s=24,Mg=1.8*s,E=poseEntries(M),rows=E.map(poseText),fs=s*.5,lh=fs*1.35,W=Math.round(M.w*s+2*Mg),eh=2*lh+fs*.45,hh=fs*2.1;
-    /* fiche groupée : Zones, Murs, Portes et portails, Pièces ; colonnes selon le volume */
-    const SEC=['ZONES DE TERRAIN','MURS','PORTES ET PORTAILS','PIÈCES'],L=[];let last=-1;E.forEach((e,i)=>{if(e.sec!==last){L.push({h:SEC[e.sec]});last=e.sec}L.push({r:rows[i]})});
-    const cols=L.length>60?3:L.length>18?2:1,colW=(W-2*Mg-(cols-1)*s)/cols,hOf=x=>x.h?hh:eh,tot=L.reduce((t,x)=>t+hOf(x),0),target=tot/cols;
-    const C=[[]];let acc=0;L.forEach(x=>{if(acc+hOf(x)>target+eh&&C.length<cols){C.push([]);acc=0}C[C.length-1].push(x);acc+=hOf(x)});
-    C.forEach(col=>{if(col.length&&col[col.length-1].h)col.pop()});
-    const colH=Math.max(...C.map(col=>col.reduce((t,x)=>t+hOf(x),0))),head=3.4*s;
-    const c=document.createElement('canvas');c.width=W;c.height=Math.round(Mg+M.h*s+Mg*1.4+head+colH+Mg);const g=c.getContext('2d');g.fillStyle='#0A0C0E';g.fillRect(0,0,c.width,c.height);
+  function poseSheet(){const s=24,Mg=1.8*s,E=poseEntries(M),rows=E.map(poseText),fs=s*.5,lh=fs*1.3,W=Math.round(M.w*s+2*Mg),eh=3*lh+fs*.5;
+    const cols=rows.length>45?3:rows.length>15?2:1,colW=(W-2*Mg-(cols-1)*s)/cols,per=Math.ceil(rows.length/cols),head=3.4*s,sub=s*1.1;
+    const c=document.createElement('canvas');c.width=W;c.height=Math.round(Mg+M.h*s+Mg*1.4+head+sub+per*eh+Mg);const g=c.getContext('2d');g.fillStyle='#0A0C0E';g.fillRect(0,0,c.width,c.height);
     renderMap(g,M,s,Mg,Mg,{dpr:2,pose:true,allSides:true,rulerColor:'#A99C82'});let y=Mg+M.h*s+Mg*1.4;g.textAlign='left';g.textBaseline='alphabetic';
     g.fillStyle='#E8DEC8';g.font=`${s}px Marcellus, Georgia, serif`;g.fillText('Plan de pose — '+M.name,Mg,y+s*.4);
-    g.font=`italic ${s*.55}px "Libre Caslon Text", Georgia, serif`;g.fillStyle='#A99C82';g.fillText(`Table de ${M.w}″ × ${M.h}″ — règles V11. Tout se mesure depuis le bord le plus proche : ← gauche, → droite, ↑ haut, ↓ bas (le haut est le haut de ce plan). Croix = centre de la table.`,Mg,y+s*1.3);
-    y+=head;const clip=(t,max)=>{if(g.measureText(t).width<=max)return t;while(t.length>4&&g.measureText(t+'…').width>max)t=t.slice(0,-1);return t+'…'};
-    C.forEach((col,ci)=>{const x=Mg+ci*(colW+s);let yy=y;col.forEach(it=>{
-      if(it.h){g.fillStyle=POSE_C;g.font=`${fs*1.05}px Marcellus, Georgia, serif`;g.fillText(it.h,x,yy+fs*1.3);g.strokeStyle='rgba(242,179,61,.35)';g.lineWidth=1;g.beginPath();g.moveTo(x,yy+fs*1.65);g.lineTo(x+colW,yy+fs*1.65);g.stroke();yy+=hh;return}
-      const r=it.r,ind=fs*2.6;yy+=lh;g.fillStyle=POSE_C;g.font=`${fs}px Marcellus, Georgia, serif`;g.fillText(r.num,x,yy);
-      g.fillStyle='#E8DEC8';g.fillText(clip(r.name+' · '+r.dims,colW-ind),x+ind,yy);g.fillStyle='#CFC5AE';g.font=`${fs*.95}px Marcellus, Georgia, serif`;g.fillText(clip(r.line,colW-ind),x+ind,yy+lh);yy+=eh-lh})});
+    g.font=`italic ${s*.55}px "Libre Caslon Text", Georgia, serif`;g.fillStyle='#A99C82';
+    g.fillText(`Table de ${M.w}″ × ${M.h}″ — règles V11. Poser dans l'ordre : chaque élément se mesure depuis un bord (cotes or) ou un décor déjà posé (cotes vertes).`,Mg,y+s*1.3);
+    g.fillText('Sans cote : collé à son voisin. « Contrôle » = position depuis les bords (← gauche, → droite, ↑ haut, ↓ bas). Croix = centre de la table.',Mg,y+s*2.1);
+    y+=head;g.fillStyle=POSE_C;g.font=`${fs*1.05}px Marcellus, Georgia, serif`;g.fillText('ORDRE DE POSE',Mg,y);y+=sub*.4;
+    const clip=(t,max)=>{if(g.measureText(t).width<=max)return t;while(t.length>4&&g.measureText(t+'…').width>max)t=t.slice(0,-1);return t+'…'};
+    rows.forEach((r,i)=>{const col=Math.floor(i/per),x=Mg+col*(colW+s),yy=y+(i%per)*eh+lh,ind=fs*2.6;
+      g.fillStyle=POSE_C;g.font=`${fs}px Marcellus, Georgia, serif`;g.fillText(r.num,x,yy);
+      g.fillStyle='#E8DEC8';g.fillText(clip(r.name+' · '+r.dims,colW-ind),x+ind,yy);
+      g.fillStyle='#D8CFB8';g.font=`${fs*.95}px Marcellus, Georgia, serif`;g.fillText(clip(r.line,colW-ind),x+ind,yy+lh);
+      g.fillStyle='#8F8670';g.font=`italic ${fs*.85}px "Libre Caslon Text", Georgia, serif`;g.fillText(clip(r.abs,colW-ind),x+ind,yy+2*lh)});
     c.toBlob(b=>download(slug(M.name)+'-plan-de-pose.png',b),'image/png')}
   $('at-png').onclick=async()=>{if(document.fonts)await document.fonts.ready;if(pose){poseSheet();return}const s=24,Mg=1.8*s,F=3*s;const c=document.createElement('canvas');c.width=Math.round(M.w*s+2*Mg);c.height=Math.round(M.h*s+Mg*1.5+F);const g=c.getContext('2d');g.fillStyle='#0A0C0E';g.fillRect(0,0,c.width,c.height);
     renderMap(g,M,s,Mg,Mg,{dpr:2,rulerColor:'#A99C82'});const y0=Mg+M.h*s+Mg*.9;g.fillStyle='#E8DEC8';g.font=`${s}px Marcellus, Georgia, serif`;g.fillText(M.name,Mg,y0+s*.4);
