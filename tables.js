@@ -463,9 +463,38 @@ function wDesc(it){return dName(it)+' de '+fN2(it.w)+' (x '+String(rd2(it.x)).re
 /* nouvelle géométrie d'un mur dont le bout side (0 = début, 1 = fin) est amené à la position t de son axe */
 function endAt(it,side,t){const A=wAxis(it);let p0=A.p0,p1=onPt(A,A.L);const q=onPt(A,t);if(side)p1=q;else p0=q;
   return{x:rd2((p0[0]+p1[0])/2),y:rd2((p0[1]+p1[1])/2),w:rd2(Math.hypot(p1[0]-p0[0],p1[1]-p0[1]))}}
-function fixPlan(items){const out=[],cur=items.map(i=>Object.assign({},i)),byId=id=>cur.find(i=>i.id===id);
-  const add=(kind,txt,p,ch)=>{ch=ch.filter(c=>{const o=byId(c.id);return o&&(c.del||Object.keys(c.set).some(k=>Math.abs((+o[k]||0)-c.set[k])>.004))});if(!ch.length)return false;
-    const L=ch.map(c=>{const o=byId(c.id),before=Object.assign({},o);if(c.del)cur.splice(cur.indexOf(o),1);else Object.assign(o,c.set);return{id:c.id,del:!!c.del,set:c.set||null,before,after:c.del?null:Object.assign({},o)}});
+/* ---------- raccords des portes : chaque bout de porte contre un mur, un poteau ou rien ----------
+   doorLinks(items, J, dims) -> { doors:[{d, id:'P1', ends:[{p, st, w, gap}…]}], issues:[…] }
+   st : ok (mur bout à bout), face (contre la face d'un mur), libre, bord (bord de table), defaut */
+function doorLinks(items,J,dims){J=J||junctions(items);const W=items.filter(isJWall),D=items.filter(isDoor),issues=[],doors=[];
+  D.slice().sort((a,b)=>(Math.round(a.y*2)-Math.round(b.y*2))||(a.x-b.x)).forEach((d,i)=>{const A=wAxis(d),id='P'+(i+1),ends=[];
+    [0,1].forEach(side=>{const E=onPt(A,side?A.L:0);let best=null;
+      W.forEach(w=>{const B=wAxis(w);
+        if(Math.abs(crs(A.u,B.u))<J_PAR){const n=onAxis(A,[w.x,w.y]).n;if(Math.abs(n)>Math.max(d.h,w.h)/2*.6)return;
+          const a=onAxis(A,B.p0).t,b=onAxis(A,onPt(B,B.L)).t,lo=Math.min(a,b),hi=Math.max(a,b);
+          if(lo<-.05&&hi>A.L+.05){best={w,kind:'sous',gap:-A.L};return}
+          if(side?(lo+hi)/2<A.L/2:(lo+hi)/2>A.L/2)return;
+          const gap=side?lo-A.L:-hi;if(gap>J_TOL+.05||gap<-Math.min(1.5,A.L*.8))return;
+          if(!best||(best.kind!=='sous'&&Math.abs(gap)<Math.abs(best.gap)))best={w,kind:'bout',gap}}
+        else{const q=onAxis(B,E);if(q.t<-.05||q.t>B.L+.05)return;const gap=Math.abs(q.n)-w.h/2;if(gap>J_TOL+.05||gap<-.6)return;
+          if(!best||(best.kind!=='sous'&&Math.abs(gap)<Math.abs(best.gap)))best={w,kind:'face',gap}}});
+      const r2=v=>Math.round(v*100)/100;let st='libre';
+      if(best){st=best.kind==='sous'?'defaut':Math.abs(best.gap)<=.05?(best.kind==='face'?'face':'ok'):'defaut';
+        if(best.kind==='sous'&&side===0)issues.push({kind:'porte-sous',p:[d.x,d.y],a:best.w,door:d,v:0,txt:id+' : un mur passe sous la porte (elle n’est pas encastrée) : le couper à la largeur de la porte.'});
+        else if(best.kind!=='sous'&&best.gap>.05)issues.push({kind:'porte-jour',p:E,a:best.w,door:d,side,face:best.kind==='face',v:r2(best.gap),txt:'Jour de '+fN2(best.gap)+' entre '+id+' et le mur'+(best.kind==='face'?' qu’elle touche de face':'')+' : les faire se toucher.'});
+        else if(best.kind!=='sous'&&best.gap<-.05)issues.push({kind:'porte-recouvre',p:E,a:best.w,door:d,side,face:best.kind==='face',v:r2(-best.gap),txt:'Le mur recouvre '+id+' sur '+fN2(-best.gap)+' : le raccourcir jusqu’au cadre.'})}
+      else if(dims&&(E[0]<.3||E[1]<.3||E[0]>dims.w-.3||E[1]>dims.h-.3))st='bord';
+      /* poteau d'angle qui empiète sur le cadre de la porte */
+      J.nodes.forEach(n=>{if(!n.post||n.manual)return;const q=onAxis(A,n.p);if(Math.abs(q.n)>=n.size/2+d.h/2-.01)return;
+        const ov=side?A.L-(q.t-n.size/2):(q.t+n.size/2);if(ov>.05&&ov<A.L/2&&(side?q.t>A.L/2:q.t<A.L/2)){st='defaut';
+          issues.push({kind:'porte-poteau',p:E,a:best&&best.w,door:d,side,node:n,v:r2(ov),txt:'Le poteau de '+n.id+' empiète de '+fN2(ov)+' sur le cadre de '+id+'.'})}});
+      ends.push({p:E,st,w:best&&best.w,gap:best?best.gap:null,side})});
+    doors.push({d,id,ends})});
+  return{doors,issues}}
+function fixPlan(items,dims){const out=[],cur=items.map(i=>Object.assign({},i)),byId=id=>cur.find(i=>i.id===id),J0=junctions(items).nodes,nm=n=>{const o=J0.find(m=>Math.hypot(m.p[0]-n.p[0],m.p[1]-n.p[1])<.6);return o?o.id:'la jonction ('+fN2(n.p[0]).replace('″','')+' ; '+fN2(n.p[1]).replace('″','')+')'};
+  const add=(kind,txt,p,ch)=>{ch=ch.filter(c=>{if(c.add)return true;const o=byId(c.id);return o&&(c.del||Object.keys(c.set).some(k=>Math.abs((+o[k]||0)-c.set[k])>.004))});if(!ch.length)return false;
+    const L=ch.map(c=>{if(c.add){const o=Object.assign({},c.add);cur.push(o);return{id:o.id,add:o,set:null,before:null,after:Object.assign({},o)}}
+      const o=byId(c.id),before=Object.assign({},o);if(c.del)cur.splice(cur.indexOf(o),1);else Object.assign(o,c.set);return{id:c.id,del:!!c.del,set:c.set||null,before,after:c.del?null:Object.assign({},o)}});
     out.push({n:out.length+1,kind,txt,p:[rd2(p[0]),rd2(p[1])],changes:L});return true};
   /* 1. angles presque droits, par chaîne de murs et portes alignés */
   const done=new Set(),norm=a=>((a%180)+180)%180;
@@ -482,8 +511,8 @@ function fixPlan(items){const out=[],cur=items.map(i=>Object.assign({},i)),byId=
       const g=Math.max(0,Math.max(-(t1-t0)/2-(tc+b.w/2),tc-b.w/2-(t1-t0)/2));if(g>3)return;if(!best||Math.abs(off)<Math.abs(best.off))best={off,b}});
     set.forEach(c=>{/* toute la chaîne sur un seul axe, puis sur celui du voisin */const o=(c.set.x-C[0])*nv[0]+(c.set.y-C[1])*nv[1]-(best?best.off:0);c.set.x=rd2(c.set.x-nv[0]*o);c.set.y=rd2(c.set.y-nv[1]*o)});
     add('angle',(chain.length>1?chain.length+' éléments alignés':wDesc(a))+' presque droit'+(chain.length>1?'s':'')+' ('+String(rd2(ang)).replace('.',',')+'°) : redressé'+(chain.length>1?'s':'')+' à '+tgt+'°'+(best?', calé'+(chain.length>1?'s':'')+' sur l’axe du mur voisin':'')+'.',C,set)});
-  /* 2. raccords signalés par la détection des jonctions, en plusieurs passes (une correction peut en révéler une autre) */
-  for(let pass=0;pass<3;pass++){const J=junctions(cur);let any=false;const seen=new Set();
+  /* 2. raccords signalés par la détection des jonctions */
+  const jPass=()=>{const J=junctions(cur);let any=false;const seen=new Set();
     J.issues.forEach(q=>{const a=byId(q.a.id),b=q.b&&byId(q.b.id);if(!a||(q.b&&!b))return;const key=q.kind+':'+[q.a.id,q.b&&q.b.id].sort().join('|');if(seen.has(key))return;seen.add(key);
       const par=b&&Math.abs(crs(wAxis(a).u,wAxis(b).u))<J_PAR;
       if(q.kind==='double'){const k=a.w<=b.w?a:b;any=add('doublon','Deux murs collés côte à côte : '+wDesc(k)+' retiré (l’autre suffit).',q.p,[{id:k.id,del:true}])||any;return}
@@ -498,11 +527,32 @@ function fixPlan(items){const out=[],cur=items.map(i=>Object.assign({},i)),byId=
       const ch=[];(q.kind==='stub'?[a]:[a,b]).forEach(w=>{const W=wAxis(w),t=onAxis(W,n.p).t,e=Math.max(...n.walls.map(x=>x.h))/2+J_STUB;if(t>e&&t<W.L-e)return;/* mur traversant : on n'y touche pas */
         const side=t<W.L/2?0:1,end=side?W.L:0;if(Math.abs(end-t)>.02)ch.push({id:w.id,set:endAt(w,side,t),w})});
       if(!ch.length)return;
-      const txt=ch.map(c=>{const d=c.set.w-c.w.w;return wDesc(c.w)+(d>0?' prolongé de '+fN2(d):' raccourci de '+fN2(-d))}).join(' ; ')+' : '+(ch.length>1?'les bouts arrivent':'le bout arrive')+' au centre de '+n.id+' ('+(k=>k.charAt(0).toLowerCase()+k.slice(1))(J_NAME[n.kind]||'Jonction')+(n.post?', sous le poteau':'')+').';
+      const txt=ch.map(c=>{const d=c.set.w-c.w.w;return wDesc(c.w)+(d>0?' prolongé de '+fN2(d):' raccourci de '+fN2(-d))}).join(' ; ')+' : '+(ch.length>1?'les bouts arrivent':'le bout arrive')+' au centre de '+nm(n)+' ('+(k=>k.charAt(0).toLowerCase()+k.slice(1))(J_NAME[n.kind]||'Jonction')+(n.post?', sous le poteau':'')+').';
       any=add(q.kind==='stub'?'bout':'jour',txt,n.p,ch.map(({id,set})=>({id,set})))||any});
-    if(!any)break}
+    return any};
+  const dPass=()=>{const DL=doorLinks(cur,null,dims);let any=false;const posts=new Map();
+    DL.issues.forEach(q=>{if(q.kind!=='porte-poteau')return;if(!posts.has(q.door.id))posts.set(q.door.id,[]);const L=posts.get(q.door.id);if(!L.some(x=>x.side===q.side))L.push(q)});
+    DL.issues.forEach(q=>{const d=byId(q.door.id);if(!d)return;const id=(DL.doors.find(x=>x.d===q.door)||{}).id||'la porte',A=wAxis(d);
+      if((q.kind==='porte-jour'||q.kind==='porte-recouvre')&&!q.face){const w=byId(q.a.id);if(!w)return;const W=wAxis(w),E=onPt(A,q.side?A.L:0),t=onAxis(W,E).t,side=t<W.L/2?0:1;
+        any=add('porte',wDesc(w)+(q.kind==='porte-jour'?' prolongé':' raccourci')+' de '+fN2(q.v)+' : il touche le cadre de '+id+'.',q.p,[{id:w.id,set:endAt(w,side,t)}])||any}
+      else if(q.kind==='porte-sous'){const w=byId(q.a.id);if(!w)return;const W=wAxis(w),ta=Math.min(onAxis(W,A.p0).t,onAxis(W,onPt(A,A.L)).t),tb=Math.max(onAxis(W,A.p0).t,onAxis(W,onPt(A,A.L)).t),ch=[];
+        if(ta>.25)ch.push({id:w.id,set:endAt(w,1,ta)});else ch.push({id:w.id,del:true});
+        if(W.L-tb>.25){const g=endAt(w,0,tb);ch.push({add:Object.assign({},w,g,{id:uid()})})}
+        any=add('porte',wDesc(w)+' coupé à la largeur de '+id+' : la porte est encastrée, le mur s’arrête de chaque côté du cadre.',[d.x,d.y],ch)||any}});
+    posts.forEach((L,did)=>{const d=byId(did);if(!d)return;const A=wAxis(d),id=(DL.doors.find(x=>x.d.id===did)||{}).id||'la porte';
+      if(L.length>1){/* poteaux des deux côtés : la porte garde sa largeur, les murs perpendiculaires s'écartent */
+        const ch=[];L.forEach(q=>{const out=(q.side?1:-1)*q.v;q.node.walls.forEach(w0=>{const w=byId(w0.id);if(!w||Math.abs(crs(A.u,wAxis(w).u))<J_PAR||ch.some(c=>c.id===w.id))return;
+          ch.push({id:w.id,set:{x:rd2(w.x+A.u[0]*out),y:rd2(w.y+A.u[1]*out)}})})});
+        any=add('porte','Poteaux de '+L.map(q=>nm(q.node)).join(' et ')+' sur les deux côtés de '+id+' : les murs perpendiculaires s’écartent de '+fN2(Math.max(...L.map(q=>q.v)))+' pour laisser la porte entière (même passage pour les socles).',[d.x,d.y],ch)||any;return}
+      const q=L[0],sh=(q.side?-1:1)*q.v,ch=[{id:d.id,set:{x:rd2(d.x+A.u[0]*sh),y:rd2(d.y+A.u[1]*sh)}}];
+      const o=(DL.doors.find(x=>x.d.id===did)||{ends:[]}).ends.find(e=>e.side!==q.side);
+      if(o&&o.w&&o.st!=='face'){const w=byId(o.w.id),W=wAxis(w),Eo=onPt(A,q.side?0:A.L),t=onAxis(W,[Eo[0]+A.u[0]*sh,Eo[1]+A.u[1]*sh]).t,side=t<W.L/2?0:1;ch.push({id:w.id,set:endAt(w,side,t)})}
+      any=add('porte',id+' décalée de '+fN2(q.v)+' pour dégager le poteau de '+nm(q.node)+(ch.length>1?' ; le mur voisin raccourcit d’autant':'')+'.',q.p,ch)||any});
+    return any};
+  /* 2. jonctions puis 3. portes, en plusieurs tours : une correction peut en révéler une autre */
+  for(let round=0;round<4;round++){const a=jPass(),b=dPass();if(!a&&!b)break}
   return out}
-function applyFix(items,list){const it=items.map(i=>Object.assign({},i));list.forEach(f=>f.changes.forEach(c=>{const k=it.findIndex(i=>i.id===c.id);if(k<0)return;if(c.del)it.splice(k,1);else Object.assign(it[k],c.set)}));return it}
+function applyFix(items,list){const it=items.map(i=>Object.assign({},i));list.forEach(f=>f.changes.forEach(c=>{if(c.add){it.push(Object.assign({},c.add));return}const k=it.findIndex(i=>i.id===c.id);if(k<0)return;if(c.del)it.splice(k,1);else Object.assign(it[k],c.set)}));return it}
 let JCACHE=null;
 function curJ(map){const sig=map.items.filter(i=>isJWall(i)||isPost(i)).map(i=>[i.id,i.x,i.y,i.w,i.h,i.rot,i.type].join(':')).join('|');
   if(!JCACHE||JCACHE.sig!==sig||JCACHE.map!==map)JCACHE={sig,map,J:junctions(map.items)};return JCACHE.J}
@@ -802,7 +852,7 @@ async function mountAtelier(host,opt){
   </div>
   <div class="at-grid">
     <aside class="at-left" id="at-pal"></aside>
-    <div class="at-stage" id="at-stage"><canvas id="at-cv" aria-label="Table de bataille"></canvas><div class="at-draft" id="at-draft" hidden></div><div class="at-hint" id="at-hint"></div><div class="at-keys" id="at-keyspanel" hidden></div><div class="at-needs" id="at-needs" hidden></div><div class="at-gapbar" id="at-gapbar" hidden></div><div class="at-needs" id="at-lib" hidden></div><div class="at-needs at-design" id="at-design" hidden></div></div>
+    <div class="at-stage" id="at-stage"><canvas id="at-cv" aria-label="Table de bataille"></canvas><div class="at-draft" id="at-draft" hidden></div><div class="at-hint" id="at-hint"></div><div class="at-keys" id="at-keyspanel" hidden></div><div class="at-needs" id="at-needs" hidden></div><div class="at-gapbar" id="at-gapbar" hidden></div><div class="at-jbar" id="at-jbar" hidden></div><div class="at-needs" id="at-lib" hidden></div><div class="at-needs at-design" id="at-design" hidden></div></div>
     <aside class="at-right">
       <div id="at-jbox" class="at-jbox" hidden></div>
       <div id="at-insp"></div>
@@ -1226,7 +1276,7 @@ async function mountAtelier(host,opt){
     sl.onchange=()=>{gapMM=sl.value;req()};b.append(el('span',{text:'Passages pour un socle de'}),sl,el('span',{id:'at-gapn',class:'at-gapn'}))}
     /* ---------- vue Jonctions (touche J) : poteaux, raccords à corriger, correction proposée ---------- */
   const mapSig=()=>JSON.stringify(M.items.filter(i=>i.k==='f').map(i=>[i.id,i.x,i.y,i.w,i.h,i.rot]));
-  function jBad(J,n){return J.issues.some(q=>Math.hypot(q.p[0]-n.p[0],q.p[1]-n.p[1])<.6)}
+  function jBad(J,n){return J.issues.concat(curD().issues).some(q=>Math.hypot(q.p[0]-n.p[0],q.p[1]-n.p[1])<.6)}
   let TAGS=[];
   /* étiquette posée au premier emplacement libre autour du point (évite les chevauchements) */
   function tag(t,x0,y0,bg,fg,pref){const d=DPR;ctx.font=`600 ${10*d}px system-ui,sans-serif`;const w=ctx.measureText(t).width+8*d,h=14*d;
@@ -1234,43 +1284,60 @@ async function mountAtelier(host,opt){
     let x=C[0][0],y=C[0][1];for(const[cx,cy]of C){if(!TAGS.some(r=>cx<r[0]+r[2]&&cx+w>r[0]&&cy<r[1]+r[3]&&cy+h>r[1])){x=cx;y=cy;break}}TAGS.push([x,y,w,h]);ctx.fillStyle='rgba(8,10,11,.55)';ctx.fillRect(x+1*d,y+1*d,w,h);ctx.fillStyle=bg;ctx.fillRect(x,y,w,h);ctx.fillStyle=fg;ctx.textAlign='left';ctx.textBaseline='middle';ctx.fillText(t,x+4*d,y+h/2+.5*d)}
   function outline(it,dash,stroke,fill){const{s,ox,oy}=view;ctx.save();ctx.setTransform(s,0,0,s,ox,oy);ctx.translate(it.x,it.y);ctx.rotate(it.rot*PI/180);
     if(fill){ctx.fillStyle=fill;ctx.fillRect(-it.w/2,-it.h/2,it.w,it.h)}ctx.setLineDash(dash.map(v=>v*DPR/s));ctx.strokeStyle=stroke;ctx.lineWidth=2*DPR/s;ctx.strokeRect(-it.w/2,-it.h/2,it.w,it.h);ctx.restore()}
+  let DCACHE=null;
+  function curD(){const sig=M.items.filter(i=>isJWall(i)||isPost(i)||isDoor(i)).map(i=>[i.id,i.x,i.y,i.w,i.h,i.rot,i.type].join(':')).join('|')+'|'+M.w+'x'+M.h;
+    if(!DCACHE||DCACHE.sig!==sig||DCACHE.map!==M)DCACHE={sig,map:M,D:doorLinks(M.items,curJ(M),{w:M.w,h:M.h})};return DCACHE.D}
+  const DST={ok:'#7FE0C2',face:'#7FE0C2',defaut:'#E8963D',libre:'#8E9AA4',bord:'#8E9AA4'};
+  function drawDoors(){const{s,ox,oy}=view,DL=curD(),d=DPR;
+    DL.doors.forEach(x=>{x.ends.forEach(e=>{const X=ox+e.p[0]*s,Y=oy+e.p[1]*s,r=3.5*d;ctx.fillStyle=DST[e.st];ctx.strokeStyle='#0B0E10';ctx.lineWidth=1.2*d;ctx.beginPath();ctx.rect(X-r,Y-r,2*r,2*r);ctx.fill();ctx.stroke()});
+      const bad=x.ends.some(e=>e.st==='defaut');tag(x.id,ox+x.d.x*s,oy+x.d.y*s,bad?'#E8963D':'#A9C8E8','#0B0E10',[[-10,8],[6,8],[-10,-22],[6,-22],[-10,24],[6,-38]])})}
+  function jBar(){const B=$('at-jbar');if(!B)return;if(!jview){B.hidden=true;return}B.hidden=false;const J=curJ(M),DL=curD(),n=J.issues.length+DL.issues.length;
+    if(FIX){const on=FIX.list.filter(f=>f.on).length;B.innerHTML=FIX.list.length?`<span><b>${FIX.list.length}</b> correction${FIX.list.length>1?'s':''} proposée${FIX.list.length>1?'s':''} : en vert le résultat, en rouge l’état actuel (détail à droite)</span><button type="button" class="at-btn at-main" data-bapply${on?'':' disabled'}>Appliquer${on?' ('+on+')':''}</button><button type="button" class="at-btn" data-bcancel>Ignorer</button>`
+      :`<span>Rien à corriger.</span><button type="button" class="at-btn" data-bcancel>Fermer</button>`}
+    else B.innerHTML=`<span>${J.nodes.length} jonction${J.nodes.length>1?'s':''} · ${DL.doors.length} porte${DL.doors.length>1?'s':''} · ${n?`<b class="at-warn">${n} raccord${n>1?'s':''} à corriger</b>`:'aucun raccord à corriger'}</span><button type="button" class="at-btn at-main" data-bplan>Proposer une correction</button>`;
+    const q=sel=>B.querySelector(sel),jb=$('at-jbox');
+    if(q('[data-bplan]'))q('[data-bplan]').onclick=()=>jb.querySelector('[data-fplan]').click();
+    if(q('[data-bapply]'))q('[data-bapply]').onclick=()=>{const b=jb.querySelector('[data-fapply]');if(b)b.click()};
+    if(q('[data-bcancel]'))q('[data-bcancel]').onclick=()=>jb.querySelector('[data-fcancel]').click()}
   function drawJView(){const{s,ox,oy}=view,J=curJ(M),d=DPR;
-    if(FIX)FIX.list.forEach(f=>{if(!f.on)return;f.changes.forEach(c=>{outline(c.before,[5,4],'#E5675C',c.del?'rgba(229,103,92,.25)':null);if(!c.del)outline(c.after,[],'#7FE0C2','rgba(127,224,194,.35)')})});
-    ctx.save();ctx.setTransform(1,0,0,1,0,0);TAGS=[];
+    if(FIX)FIX.list.forEach(f=>{if(!f.on)return;f.changes.forEach(c=>{if(c.before)outline(c.before,[5,4],'#E5675C',c.del?'rgba(229,103,92,.25)':null);if(!c.del)outline(c.after,[],'#7FE0C2','rgba(127,224,194,.35)')})});
+    ctx.save();ctx.setTransform(1,0,0,1,0,0);TAGS=[];drawDoors();
     J.nodes.forEach(n=>{const x=ox+n.p[0]*s,y=oy+n.p[1]*s,bad=jBad(J,n);
       if(n.post){const h=n.size/2*s+3*d;ctx.save();ctx.translate(x,y);ctx.rotate(n.rot*PI/180);ctx.strokeStyle=bad?'#E8963D':'#7FE0C2';ctx.lineWidth=2*d;ctx.strokeRect(-h,-h,2*h,2*h);ctx.restore()}
       else{ctx.fillStyle='#E8DEC8';ctx.beginPath();ctx.arc(x,y,3*d,0,TAU);ctx.fill()}
       tag(n.id+' '+n.kind,x,y,bad?'#E8963D':n.post?'#7FE0C2':'#C9BFA9','#0B0E10')});
-    J.issues.forEach((q,i)=>{const x=ox+q.p[0]*s,y=oy+q.p[1]*s;ctx.strokeStyle='#E8963D';ctx.lineWidth=2*d;ctx.beginPath();ctx.arc(x,y,11*d,0,TAU);ctx.stroke();tag('!'+(i+1),x,y,'#E8963D','#0B0E10',[[12,4],[12,-18],[-12,4],[-12,-18],[12,20],[-12,20],[12,-34]])});
+    J.issues.concat(curD().issues).forEach((q,i)=>{const x=ox+q.p[0]*s,y=oy+q.p[1]*s;ctx.strokeStyle='#E8963D';ctx.lineWidth=2*d;ctx.beginPath();ctx.arc(x,y,11*d,0,TAU);ctx.stroke();tag('!'+(i+1),x,y,'#E8963D','#0B0E10',[[12,4],[12,-18],[-12,4],[-12,-18],[12,20],[-12,20],[12,-34]])});
     if(FIX)FIX.list.forEach(f=>{if(!f.on)return;const x=ox+f.p[0]*s,y=oy+f.p[1]*s;tag('C'+f.n,x,y,'#7FE0C2','#0B0E10',[[-12,4],[-12,-18],[12,4],[12,20],[-12,20],[12,-34]])});
     ctx.restore()}
-  function jPanel(show){jview=show==null?!jview:show;$('at-jnb').setAttribute('aria-pressed',jview);$('at-jbox').hidden=!jview;if(!jview)FIX=null;jLast=null;renderJBox();hint();req()}
+  function jPanel(show){jview=show==null?!jview:show;$('at-jnb').setAttribute('aria-pressed',jview);$('at-jbox').hidden=!jview;if(!jview)FIX=null;jLast=null;renderJBox();jBar();hint();req()}
   $('at-jnb').onclick=()=>jPanel();
-  function jSync(){if(!jview)return;if(FIX&&FIX.sig!==mapSig()){FIX=null;jLast=null}const J=curJ(M);if(J!==jLast){jLast=J;renderJBox()}}
+  function jSync(){if(!jview)return;if(FIX&&FIX.sig!==mapSig()){FIX=null;jLast=null}const J=curD();if(J!==jLast){jLast=J;renderJBox()}}
   function seeIds(ids){setSel(ids.filter(id=>M.items.some(i=>i.id===id)))}
   function renderJBox(){const P=$('at-jbox');if(!P||P.hidden)return;const J=curJ(M),c={};J.nodes.forEach(n=>c[n.kind]=(c[n.kind]||0)+1);
     const lab={L:['angle','angles'],T:['T','T'],X:['croisement','croisements'],I:['prolongement','prolongements'],'*':['jonction multiple','jonctions multiples']};
     const parts=Object.keys(lab).filter(k=>c[k]).map(k=>c[k]+' '+lab[k][c[k]>1?1:0]),np=J.nodes.filter(n=>n.post&&!n.manual).length;
     let h=`<h3>Jonctions des murs</h3>`;
+    const DL=curD(),dc={};DL.doors.forEach(x=>x.ends.forEach(e=>dc[e.st]=(dc[e.st]||0)+1));const IS=J.issues.concat(DL.issues);
     h+=J.nodes.length?`<p class="at-muted">${parts.join(', ')}. <b>${np}</b> poteau${np>1?'x':''} d’angle à imprimer${np?' (encadrés en vert sur la table)':''}. Lettres : L angle, T, X croisement, I prolongement sans poteau.</p>`:'<p class="at-muted">Aucune jonction : les murs ne se touchent pas.</p>';
     if(FIX){const on=FIX.list.filter(f=>f.on).length;
       h+=FIX.list.length?`<p class="at-jfix-i">Correction proposée : en <span class="at-swatch at-sw-new"></span> vert le résultat, en <span class="at-swatch at-sw-old"></span> rouge pointillé l’état actuel. Décoche ce que tu ne veux pas.</p>
         <ol class="at-jfix">${FIX.list.map((f,i)=>`<li><label><input type="checkbox" data-fx="${i}"${f.on?' checked':''}> <b>C${f.n}</b> ${esc(f.txt)}</label> <button type="button" class="at-linkb" data-fsee="${i}">Voir</button></li>`).join('')}</ol>
         <div class="at-acts"><button type="button" class="at-btn at-main" data-fapply${on?'':' disabled'}>Appliquer ${on>1?'les '+on+' corrections':on?'la correction':''}</button><button type="button" class="at-btn" data-fcancel>Ignorer</button></div>`
         :`<p class="at-muted">Rien à corriger : les murs sont bien raccordés.</p><div class="at-acts"><button type="button" class="at-btn" data-fcancel>Fermer la proposition</button></div>`}
-    else{h+=J.issues.length?`<p class="at-warn">${J.issues.length} raccord${J.issues.length>1?'s':''} à corriger (cercles orange) :</p><ol class="at-jissue">${J.issues.map((q,i)=>`<li><b>!${i+1}</b> ${esc(q.txt)} <button type="button" class="at-linkb" data-isee="${i}">Voir</button></li>`).join('')}</ol>`:J.nodes.length?'<p class="at-muted">Aucun raccord signalé.</p>':'';
+    else{h+=DL.doors.length?`<p class="at-muted"><b>${DL.doors.length}</b> porte${DL.doors.length>1?'s':''} (étiquettes bleues P1…) : ${(dc.ok||0)+(dc.face||0)} bout${(dc.ok||0)+(dc.face||0)>1?'s':''} raccordé${(dc.ok||0)+(dc.face||0)>1?'s':''} à un mur${dc.bord?', '+dc.bord+' contre le bord de table':''}${dc.libre?', '+dc.libre+' libre'+(dc.libre>1?'s':''):''}${dc.defaut?', <b class="at-warn">'+dc.defaut+' à corriger</b>':''}. Carré vert : raccordé ; gris : libre ou bord ; orange : à corriger.</p>`:'';
+      h+=IS.length?`<p class="at-warn">${IS.length} raccord${IS.length>1?'s':''} à corriger (cercles orange) :</p><ol class="at-jissue">${IS.map((q,i)=>`<li><b>!${i+1}</b> ${esc(q.txt)} <button type="button" class="at-linkb" data-isee="${i}">Voir</button></li>`).join('')}</ol>`:J.nodes.length?'<p class="at-muted">Aucun raccord signalé.</p>':'';
       h+=`<div class="at-acts"><button type="button" class="at-btn at-main" data-fplan title="Calcule une carte corrigée, à appliquer ou non">Proposer une correction</button></div>`}
     if(J.nodes.length)h+=`<details class="at-jnodes"><summary>Liste des jonctions (${J.nodes.length})</summary><ul>${J.nodes.map((n,i)=>`<li><b>${n.id}</b> ${esc(J_NAME[n.kind]||n.kind)} · ${n.walls.length} murs${n.post?' · poteau '+fN2(n.size)+(n.manual?' (posé à la main)':''):''} <button type="button" class="at-linkb" data-nsee="${i}">Voir</button></li>`).join('')}</ul></details>`;
-    P.innerHTML=h;
-    P.querySelectorAll('[data-isee]').forEach(b=>b.onclick=()=>{const q=J.issues[+b.dataset.isee];seeIds([q.a.id].concat(q.b?[q.b.id]:[]))});
+    P.innerHTML=h;jBar();
+    P.querySelectorAll('[data-isee]').forEach(b=>b.onclick=()=>{const q=IS[+b.dataset.isee];seeIds([q.a&&q.a.id,q.b&&q.b.id,q.door&&q.door.id].filter(Boolean))});
     P.querySelectorAll('[data-nsee]').forEach(b=>b.onclick=()=>seeIds(J.nodes[+b.dataset.nsee].walls.map(w=>w.id)));
-    const fp=P.querySelector('[data-fplan]');if(fp)fp.onclick=()=>{const list=fixPlan(M.items).map(f=>Object.assign(f,{on:true}));FIX={list,sig:mapSig()};renderJBox();req();
+    const fp=P.querySelector('[data-fplan]');if(fp)fp.onclick=()=>{const list=fixPlan(M.items,{w:M.w,h:M.h}).map(f=>Object.assign(f,{on:true}));FIX={list,sig:mapSig()};renderJBox();req();
       status(list.length?list.length+' correction'+(list.length>1?'s':'')+' proposée'+(list.length>1?'s':'')+', rien n’est encore modifié.':'Aucune correction à proposer.')};
     P.querySelectorAll('[data-fx]').forEach(x=>x.onchange=()=>{FIX.list[+x.dataset.fx].on=x.checked;const keep=P.scrollTop;renderJBox();$('at-jbox').scrollTop=keep;req()});
     P.querySelectorAll('[data-fsee]').forEach(b=>b.onclick=()=>seeIds(FIX.list[+b.dataset.fsee].changes.map(c=>c.id)));
     const fc=P.querySelector('[data-fcancel]');if(fc)fc.onclick=()=>{FIX=null;renderJBox();req();status('Proposition ignorée, la carte n’a pas changé.')};
     const fa=P.querySelector('[data-fapply]');if(fa)fa.onclick=()=>{const L=FIX.list.filter(f=>f.on);if(!L.length)return;pushUndo();const next=applyFix(M.items,L);M.items.splice(0,M.items.length,...next);
-      FIX=null;jLast=null;setSel([]);printList();const left=junctions(M.items).issues.length;
+      FIX=null;jLast=null;setSel([]);printList();const left=junctions(M.items).issues.length+doorLinks(M.items,null,{w:M.w,h:M.h}).issues.length;
       status(L.length+' correction'+(L.length>1?'s':'')+' appliquée'+(L.length>1?'s':'')+' (Ctrl+Z pour revenir).'+(left?' Il reste '+left+' raccord'+(left>1?'s':'')+' : relance la proposition.':''));renderJBox();req()}}
 function drawGaps(){const{s,ox,oy}=view,dm=baseIn(gapMM),D=Math.min(dm.w,dm.h),G=findGaps(M,D),P=q=>[ox+q[0]*s,oy+q[1]*s];let nb=0,nt=0;ctx.save();ctx.setTransform(1,0,0,1,0,0);
     G.forEach(g=>{g.ok?nt++:nb++;const a=P(g.a),b=P(g.b),m=P(g.m),col=g.ok?'#F2B33D':'#FF5E52';ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=3*DPR;ctx.beginPath();ctx.moveTo(a[0],a[1]);ctx.lineTo(b[0],b[1]);ctx.stroke();
