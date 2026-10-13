@@ -149,3 +149,21 @@
 .at-joints{margin:.4rem 0}
 .at-joint-issues{margin:.2rem 0 .8rem;padding-left:1.1rem;color:#E8963D;font-size:.9em}
 .at-joint-issues li{margin:.15rem 0}
+
+/* vue Jonctions (touche J) : colonne de droite */
+.at-jbox{border:1px solid var(--line-strong); background:var(--ink2); padding:10px 12px 12px; margin-bottom:14px; font-size:.84rem; max-height:60vh; overflow:auto}
+.at-jbox[hidden]{display:none}
+.at-jbox h3{margin-top:0}
+.at-jbox p, .at-jbox li{margin:6px 0; text-align:left; font-style:normal; hyphens:none}
+.at-jbox .at-muted{color:var(--bone-dim)}
+.at-jbox ol, .at-jbox ul{margin:6px 0; padding-left:18px}
+.at-jbox li{margin:0 0 6px; line-height:1.4}
+.at-jfix{list-style:none; padding-left:0 !important}
+.at-jfix label{cursor:pointer}
+.at-jfix input{accent-color:#7FE0C2; vertical-align:-2px}
+.at-jfix-i{color:var(--bone)}
+.at-swatch{display:inline-block; width:12px; height:8px; vertical-align:0; border:2px solid}
+.at-sw-new{border-color:#7FE0C2; background:rgba(127,224,194,.35)}
+.at-sw-old{border-color:#E5675C; border-style:dashed}
+.at-jnodes summary{cursor:pointer; color:var(--bone-dim); margin-top:8px}
+.at-jbox .at-btn[disabled]{opacity:.45; cursor:not-allowed}
