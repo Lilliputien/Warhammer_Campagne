@@ -167,3 +167,8 @@
 .at-sw-old{border-color:#E5675C; border-style:dashed}
 .at-jnodes summary{cursor:pointer; color:var(--bone-dim); margin-top:8px}
 .at-jbox .at-btn[disabled]{opacity:.45; cursor:not-allowed}
+/* bandeau Jonctions sur la carte : résumé et bouton de correction toujours visibles */
+.at-jbar{position:absolute; top:12px; right:12px; z-index:1; display:flex; flex-wrap:wrap; gap:6px 8px; align-items:center; justify-content:flex-end; max-width:min(560px, calc(100% - 24px)); background:var(--panel); border:1px solid var(--line-strong); padding:6px 10px; font-size:.84rem; color:var(--bone); box-shadow:0 4px 16px rgba(0,0,0,.45)}
+.at-jbar[hidden]{display:none}
+.at-jbar span{text-align:left}
+.at-jbar .at-btn[disabled]{opacity:.45; cursor:not-allowed}
